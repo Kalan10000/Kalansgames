@@ -12,8 +12,10 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            padding: 2rem;
+            box-sizing: border-box;
             background-color: #1a1a1a;
             color: white;
         }
@@ -22,16 +24,23 @@
             margin-bottom: 2rem;
             font-size: 2.5rem;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            text-align: center;
         }
 
         .button-container {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
             gap: 20px;
+            max-width: 1200px;
+            width: 100%;
         }
 
         .game-button {
-            padding: 15px 30px;
-            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px 20px;
+            font-size: 1.1rem;
             font-weight: bold;
             text-decoration: none;
             color: white;
@@ -49,6 +58,19 @@
 
         .game-button:active {
             transform: translateY(1px);
+        }
+
+        /* Responsive layouts for smaller screen sizes */
+        @media (max-width: 1024px) {
+            .button-container {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .button-container {
+                grid-template-columns: repeat(1, 1fr);
+            }
         }
     </style>
 </head>
@@ -73,8 +95,4 @@
 
 </body>
 
-
 </html>
-
-
-
