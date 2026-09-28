@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description"
+    content="KALAN OS 5.1 - a pixel-art desktop launcher for a small library of browser games.">
+  <meta name="theme-color" content="#0d0d16">
+  <title>KALAN OS 5.1</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%230d0d16'/%3E%3Crect x='3' y='3' width='10' height='8' fill='%23f2f2f7'/%3E%3Crect x='5' y='6' width='6' height='1' fill='%230d0d16'/%3E%3Crect x='5' y='8' width='4' height='1' fill='%230d0d16'/%3E%3Crect x='2' y='13' width='12' height='1' fill='%23facc15'/%3E%3C/svg%3E">
+</head>
+
+<body>
+
+  <!-- ===================== BOOT SEQUENCE ===================== -->
+  <div id="boot" class="boot">
+    <pre id="boot-log" class="boot-log" aria-live="polite"></pre>
+    <div class="boot-bar-wrap">
+      <div class="boot-bar"><i id="boot-fill"></i></div>
+      <span id="boot-pct" class="boot-pct">0%</span>
+    </div>
+    <p class="boot-skip">press any key to skip</p>
+  </div>
+
+  <!-- ===================== DESKTOP ===================== -->
+  <div id="desktop" class="desktop" hidden>
+
+    <div class="wallpaper" aria-hidden="true">
+      <div class="wallpaper-logo">
+        <span>KALAN</span>
+        <span class="wallpaper-sub">OS 5.1</span>
+      </div>
+    </div>
+
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="scanlines" aria-hidden="true"></div>
+
+    <!-- icon grid + start-menu rail -->
+    <main class="icons" id="icons" aria-label="Installed games"></main>
+
+    <!-- "recently played" strip, filled from localStorage -->
+    <aside class="recents" id="recents" hidden>
+      <h2 class="recents-title">RECENT</h2>
+      <div class="recents-row" id="recents-row"></div>
+    </aside>
+
+    <!-- windows are appended here -->
+    <div id="windows" class="window-layer"></div>
+
+    <!-- ===================== CONTEXT MENU ===================== -->
+    <div id="ctx" class="menu ctx-menu" hidden role="menu"></div>
+
+    <!-- ===================== TASKBAR ===================== -->
+    <div class="taskbar">
+      <button class="start-btn" id="start-btn" aria-haspopup="true" aria-expanded="false">
+        <span class="start-glyph" aria-hidden="true"></span>
+        <span class="start-text">START</span>
+      </button>
+
+      <div class="task-items" id="task-items"></div>
+
+      <div class="tray">
+        <span class="tray-count" id="tray-count">11 GAMES</span>
+        <span class="tray-clock" id="tray-clock">--:--</span>
+      </div>
+    </div>
+
+    <!-- ===================== START MENU ===================== -->
+    <div id="start-menu" class="menu start-menu" hidden role="menu">
+      <div class="start-head">
+        <div class="start-head-name">KALAN</div>
+        <div class="start-head-ver">OS 5.1</div>
+      </div>
+      <div class="start-scroll">
+        <div class="start-section-label">GAMES</div>
+        <div id="start-games" class="start-games"></div>
+        <div class="start-sep"></div>
+        <button class="menu-item" data-cmd="about">
+          <span class="mi-glyph mi-about" aria-hidden="true"></span>
+          <span>About KALAN OS</span>
+        </button>
+        <button class="menu-item" data-cmd="reboot">
+          <span class="mi-glyph mi-reboot" aria-hidden="true"></span>
+          <span>Reboot</span>
+        </button>
+        <button class="menu-item" data-cmd="closeall">
+          <span class="mi-glyph mi-closeall" aria-hidden="true"></span>
+          <span>Close all windows</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="games.js"></script>
+  <script src="os.js"></script>
+</body>
+
+</html>
