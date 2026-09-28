@@ -289,9 +289,12 @@
           if (Math.abs(dx) < DRAG_SLOP && Math.abs(dy) < DRAG_SLOP) return;
           dragging = true;
           el.classList.add('dragging');
-          /* pin the untouched grid first, then take hold of this icon */
+          /* Pin the untouched grid, then keep hold of this icon. freezeLayout
+             has already parked this element exactly where it sits, so there is
+             nothing to re-park here: re-parking from the pointerdown rect would
+             snap and clamp an already-correct spot and nudge the icon out from
+             under the cursor on pickup. */
           freezeLayout();
-          parkIcon(el, rect.left - host.left, rect.top - host.top);
         }
         ev.preventDefault();
         parkIcon(el, ev.clientX - host.left - grabX, ev.clientY - host.top - grabY);
@@ -841,6 +844,7 @@
       closeMenus();
       if (cmd === 'about') openAbout();
       else if (cmd === 'closeall') closeAll();
+      else if (cmd === 'resetlayout') resetIconLayout();
       else if (cmd === 'reboot') location.reload();
     });
 

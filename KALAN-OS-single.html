@@ -269,6 +269,11 @@ body {
   position: relative;
   width: 96px;
   min-height: 0;
+  /* Size to content rather than stretching to the 1fr grid row. A stretched
+     item is ~110px tall, but the same icon once absolutely positioned is
+     content-height, so the box would shrink under the cursor on pickup. */
+  align-self: start;
+  height: auto;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -301,8 +306,8 @@ body {
 .dicon.dragging {
   z-index: 5;
   cursor: grabbing;
-  background: rgba(120, 120, 200, 0.28);
-  border-color: var(--accent);
+  background: #3a3a6e;
+  border-color: var(--face-lt);
 }
 
 .dicon.placed {
@@ -332,19 +337,22 @@ body {
   text-shadow: 1px 1px 0 #000, 0 0 3px #000;
 }
 
+/* Solid blocks, not translucent washes. A translucent highlight picks up the
+   wallpaper gradient behind it and reads as a soft glow, which is the one
+   thing this design language never uses. */
 .dicon:hover {
-  border-color: #6a6a92;
-  background: rgba(120, 120, 200, 0.18);
+  border-color: #8a8ab5;
+  background: #26264a;
 }
 
 .dicon:focus-visible {
-  outline: 2px dotted var(--accent);
-  outline-offset: -4px;
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .dicon.sel {
   border-color: var(--accent);
-  background: rgba(34, 211, 238, 0.16);
+  background: #12414d;
 }
 
 .dicon:active .art {
@@ -900,6 +908,15 @@ body {
   box-shadow: inset 0 0 0 3px #facc15;
 }
 
+/* 2x2 of blocks: icons back in their grid slots */
+.mi-reset {
+  background:
+    linear-gradient(var(--ink) 0 0) 0 0 / 6px 6px no-repeat,
+    linear-gradient(var(--ink) 0 0) 10px 0 / 6px 6px no-repeat,
+    linear-gradient(var(--ink) 0 0) 0 10px / 6px 6px no-repeat,
+    linear-gradient(var(--ink) 0 0) 10px 10px / 6px 6px no-repeat;
+}
+
 .mi-reboot {
   background: var(--ink);
   clip-path: polygon(0 0, 60% 0, 60% 30%, 100% 30%, 40% 100%, 40% 65%, 0 65%);
@@ -1132,6 +1149,10 @@ body {
         <div class="start-head-ver">OS 5.1</div>
       </div>
       <div class="start-scroll">
+        <button class="menu-item" data-cmd="resetlayout">
+          <span class="mi-glyph mi-reset" aria-hidden="true"></span>
+          <span>Reset placements</span>
+        </button>
         <button class="menu-item" data-cmd="about">
           <span class="mi-glyph mi-about" aria-hidden="true"></span>
           <span>About KALAN OS</span>
@@ -1760,9 +1781,12 @@ window.GAMES = [
           if (Math.abs(dx) < DRAG_SLOP && Math.abs(dy) < DRAG_SLOP) return;
           dragging = true;
           el.classList.add('dragging');
-          /* pin the untouched grid first, then take hold of this icon */
+          /* Pin the untouched grid, then keep hold of this icon. freezeLayout
+             has already parked this element exactly where it sits, so there is
+             nothing to re-park here: re-parking from the pointerdown rect would
+             snap and clamp an already-correct spot and nudge the icon out from
+             under the cursor on pickup. */
           freezeLayout();
-          parkIcon(el, rect.left - host.left, rect.top - host.top);
         }
         ev.preventDefault();
         parkIcon(el, ev.clientX - host.left - grabX, ev.clientY - host.top - grabY);
@@ -2312,6 +2336,7 @@ window.GAMES = [
       closeMenus();
       if (cmd === 'about') openAbout();
       else if (cmd === 'closeall') closeAll();
+      else if (cmd === 'resetlayout') resetIconLayout();
       else if (cmd === 'reboot') location.reload();
     });
 
