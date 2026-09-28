@@ -52,7 +52,7 @@
   function icon(id) { return ICONS[id] || ''; }
 
   var STORE_PLAYS = 'kalanos.plays';
-  var STORE_ORDER = 'kalanos.order';
+  var STORE_POS = 'kalanos.positions';
 
   function readJSON(key, fallback) {
     try {
@@ -69,13 +69,6 @@
     var plays = readJSON(STORE_PLAYS, {});
     plays[id] = (plays[id] || 0) + 1;
     writeJSON(STORE_PLAYS, plays);
-
-    var order = readJSON(STORE_ORDER, []);
-    order = order.filter(function (x) { return x !== id; });
-    order.unshift(id);
-    writeJSON(STORE_ORDER, order.slice(0, 8));
-
-    renderRecents();
     renderBadges();
   }
 
@@ -137,8 +130,6 @@
     setTimeout(function () { bootEl.remove(); }, 300);
     log('desktop ready');
     renderIcons();
-    renderStartGames();
-    renderRecents();
     startClock();
     wireShell();
   }
@@ -179,6 +170,7 @@
         '<span class="playcount" hidden></span>';
       iconsEl.appendChild(b);
       iconBtns.push(b);
+      wireIconDrag(b);
     });
 
     iconsEl.addEventListener('click', onIconClick);
@@ -188,11 +180,147 @@
     });
     iconsEl.addEventListener('contextmenu', onIconContext);
     renderBadges();
+    applySavedLayout();
+  }
+
+  /* ----------------------------------------------------- icon dragging ---- */
+  /* Icons start in the CSS grid. The first drag freezes the whole grid into
+     absolute positions (see freezeLayout), after which every icon is positioned
+     by stored coordinates. Final coordinates are kept per game id in
+     localStorage and re-applied on the next load. */
+
+  var GRID = 2;          /* everything in this design sits on a 2px grid */
+  var DRAG_SLOP = 4;     /* px of movement before a press counts as a drag */
+  /* A drag ends with a click on the same icon. Swallow exactly that click, and
+     only while it is still plausible -- matching on the element matters, since
+     a blanket timeout also ate the next click on any other icon. */
+  var swallow = { el: null, until: 0 };
+
+  function loadLayout() { return readJSON(STORE_POS, {}); }
+
+  function saveLayout(map) { writeJSON(STORE_POS, map); }
+
+  function snap(v) { return Math.round(v / GRID) * GRID; }
+
+  function clampToHost(el, x, y) {
+    var host = iconsEl.getBoundingClientRect();
+    var maxX = Math.max(0, host.width - el.offsetWidth);
+    var maxY = Math.max(0, host.height - el.offsetHeight);
+    return {
+      x: Math.min(Math.max(0, x), maxX),
+      y: Math.min(Math.max(0, y), maxY)
+    };
+  }
+
+  function parkIcon(el, x, y) {
+    var p = clampToHost(el, x, y);
+    el.classList.add('placed');
+    el.style.left = snap(p.x) + 'px';
+    el.style.top = snap(p.y) + 'px';
+    return { x: snap(p.x), y: snap(p.y) };
+  }
+
+  function rememberIcon(el) {
+    var map = loadLayout();
+    map[el.dataset.id] = { x: parseFloat(el.style.left) || 0, y: parseFloat(el.style.top) || 0 };
+    saveLayout(map);
+  }
+
+  function applySavedLayout() {
+    var map = loadLayout();
+    var any = false;
+    iconBtns.forEach(function (el) {
+      var p = map[el.dataset.id];
+      if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') return;
+      parkIcon(el, p.x, p.y);
+      any = true;
+    });
+    return any;
+  }
+
+  /* The first time an icon is dragged the whole grid is pinned in place.
+     Without this, pulling one icon out of the flow would let the remaining
+     ones reflow into the gap and land underneath it -- and that shuffle would
+     repeat on every reload. */
+  function freezeLayout() {
+    var host = iconsEl.getBoundingClientRect();
+    var map = loadLayout();
+    var pending = [];
+    /* Measure everything up front. Parking an icon takes it out of the grid,
+       so reading the next rect after a park would report a reflowed position. */
+    iconBtns.forEach(function (el) {
+      if (el.classList.contains('placed')) return;
+      var r = el.getBoundingClientRect();
+      pending.push([el, r.left - host.left, r.top - host.top]);
+    });
+    pending.forEach(function (p) {
+      map[p[0].dataset.id] = parkIcon(p[0], p[1], p[2]);
+    });
+    saveLayout(map);
+  }
+
+  function resetIconLayout() {
+    saveLayout({});
+    iconBtns.forEach(function (el) {
+      el.classList.remove('placed');
+      el.style.left = '';
+      el.style.top = '';
+    });
+  }
+
+  function wireIconDrag(el) {
+    el.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+      var host = iconsEl.getBoundingClientRect();
+      var rect = el.getBoundingClientRect();
+      /* where inside the icon the pointer grabbed it, so it does not jump */
+      var grabX = e.clientX - rect.left;
+      var grabY = e.clientY - rect.top;
+      var startX = e.clientX, startY = e.clientY;
+      var dragging = false;
+
+      try { el.setPointerCapture(e.pointerId); } catch (err) { /* not supported */ }
+
+      function onMove(ev) {
+        var dx = ev.clientX - startX;
+        var dy = ev.clientY - startY;
+        if (!dragging) {
+          if (Math.abs(dx) < DRAG_SLOP && Math.abs(dy) < DRAG_SLOP) return;
+          dragging = true;
+          el.classList.add('dragging');
+          /* pin the untouched grid first, then take hold of this icon */
+          freezeLayout();
+          parkIcon(el, rect.left - host.left, rect.top - host.top);
+        }
+        ev.preventDefault();
+        parkIcon(el, ev.clientX - host.left - grabX, ev.clientY - host.top - grabY);
+      }
+
+      function onUp() {
+        el.removeEventListener('pointermove', onMove);
+        el.removeEventListener('pointerup', onUp);
+        el.removeEventListener('pointercancel', onUp);
+        if (!dragging) return;
+        el.classList.remove('dragging');
+        swallow.el = el;
+        swallow.until = Date.now() + 400;
+        /* if no click follows (pointer released off the icon) do not stay armed */
+        setTimeout(function () { if (swallow.el === el) swallow.el = null; }, 0);
+        rememberIcon(el);
+      }
+
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerup', onUp);
+      el.addEventListener('pointercancel', onUp);
+    });
   }
 
   function onIconClick(e) {
     var b = e.target.closest('.dicon');
     if (!b) return;
+    /* a drag ends with a click; do not launch the game in that case */
+    if (swallow.el === b && Date.now() < swallow.until) { swallow.el = null; return; }
     iconBtns.forEach(function (x) { x.classList.remove('sel'); });
     b.classList.add('sel');
     openGame(b.dataset.id);
@@ -226,30 +354,6 @@
   function byId(id) {
     for (var i = 0; i < GAMES.length; i++) if (GAMES[i].id === id) return GAMES[i];
     return null;
-  }
-
-  /* ---------------------------------------------------------- recents ---- */
-
-  function renderRecents() {
-    var wrap = $('#recents');
-    var row = $('#recents-row');
-    var plays = readJSON(STORE_PLAYS, {});
-    var order = readJSON(STORE_ORDER, []).filter(function (id) { return byId(id); });
-
-    if (!order.length) { wrap.hidden = true; return; }
-    wrap.hidden = false;
-    row.innerHTML = '';
-
-    order.slice(0, 6).forEach(function (id) {
-      var g = byId(id);
-      var b = document.createElement('button');
-      b.className = 'rchip';
-      b.type = 'button';
-      b.title = g.title + '  (' + (plays[id] || 0) + ' plays)';
-      b.innerHTML = icon(id) + '<span>' + esc(g.title) + '</span>';
-      b.addEventListener('click', function () { openGame(id); });
-      row.appendChild(b);
-    });
   }
 
   /* ---------------------------------------------------------- windows ---- */
@@ -592,19 +696,6 @@
     ctxEl.style.top = Math.min(y, innerHeight - r.height - 4) + 'px';
   }
 
-  function renderStartGames() {
-    var host = $('#start-games');
-    host.innerHTML = '';
-    GAMES.forEach(function (g) {
-      var b = document.createElement('button');
-      b.className = 'menu-item';
-      b.type = 'button';
-      b.innerHTML = '<span class="mi-icon">' + icon(g.id) + '</span><span>' + esc(g.title) + '</span>';
-      b.addEventListener('click', function () { closeMenus(); openGame(g.id); });
-      host.appendChild(b);
-    });
-  }
-
   function openAbout() {
     var plays = readJSON(STORE_PLAYS, {});
     var total = Object.keys(plays).reduce(function (a, k) { return a + plays[k]; }, 0);
@@ -618,8 +709,9 @@
 
     var body =
       '<h4>WELCOME TO KALAN OS</h4>' +
-      '<p>This is a fake desktop that launches real games. Click an icon on the ' +
-      'left, or press <code>START</code> to browse the full list. Windows drag by ' +
+      '<p>This is a fake desktop that launches real games. Click an icon to ' +
+      'open it, or drag an icon anywhere you like -- the layout is saved. ' +
+      'Windows drag by ' +
       'their title bar, resize from the bottom-right grip, and double-click the ' +
       'title bar to maximise.</p>' +
       '<div class="stat-row">' +
@@ -770,6 +862,7 @@
         { label: 'Tile windows', act: tileWindows },
         { label: 'Minimise all', act: function () { windows.filter(function (w) { return !w.min; }).forEach(minimise); } },
         { label: 'Close all windows', act: closeAll },
+        { label: 'Reset icon layout', act: resetIconLayout },
         { label: 'About KALAN OS', act: openAbout },
         { label: 'Reboot', act: function () { location.reload(); } }
       ]);
@@ -796,6 +889,12 @@
         if (!win.max) return;
         win.el.style.width = box.w + 'px';
         win.el.style.height = box.h + 'px';
+      });
+      /* a smaller window can strand a dragged icon outside the icon area */
+      iconBtns.forEach(function (el) {
+        if (!el.classList.contains('placed')) return;
+        parkIcon(el, parseFloat(el.style.left) || 0, parseFloat(el.style.top) || 0);
+        rememberIcon(el);
       });
     });
   }
@@ -858,10 +957,11 @@
     reset: function () {
       try {
         localStorage.removeItem(STORE_PLAYS);
-        localStorage.removeItem(STORE_ORDER);
+        localStorage.removeItem(STORE_POS);
       } catch (e) { /* ignore */ }
       location.reload();
     },
+    resetLayout: resetIconLayout,
   };
 
   runBoot();
