@@ -1,0 +1,2407 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description"
+    content="KALAN OS 5.1 - a pixel-art desktop launcher for a small library of browser games.">
+  <meta name="theme-color" content="#0d0d16">
+  <title>KALAN OS 5.1</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap"
+    rel="stylesheet">
+
+  <style>
+/* ==========================================================================
+   KALAN OS 5.1  --  pixel desktop
+   Design rules, do not break these:
+     * no border-radius anywhere
+     * no smooth easing -- use steps() or nothing
+     * everything sits on a 2px grid
+     * no blur, no soft shadows (only hard 0-blur offset shadows)
+   ========================================================================== */
+
+:root {
+  --ink: #0d0d16;
+  --face: #c3c3d6;
+  --face-lt: #e9e9f6;
+  --face-dk: #7a7a94;
+  --face-dkr: #43435c;
+  --desk-a: #16162b;
+  --desk-b: #1d1d38;
+  --desk-c: #232348;
+  --accent: #22d3ee;
+  --bar: 34px;
+  --u: 2px;
+
+  --bevel-out: inset calc(var(--u) * -1) calc(var(--u) * -1) 0 var(--face-dkr),
+    inset var(--u) var(--u) 0 var(--face-lt);
+  --bevel-in: inset var(--u) var(--u) 0 var(--face-dkr),
+    inset calc(var(--u) * -1) calc(var(--u) * -1) 0 var(--face-lt);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border-radius: 0 !important;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--face);
+  font-family: 'VT323', 'Courier New', monospace;
+  font-size: 18px;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  text-rendering: geometricPrecision;
+  overscroll-behavior: none;
+}
+
+.pix {
+  shape-rendering: crispEdges;
+  image-rendering: pixelated;
+  display: block;
+}
+
+.pixel-font {
+  font-family: 'Press Start 2P', 'VT323', monospace;
+}
+
+/* ===================== BOOT ===================== */
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: #05050a;
+  color: #4ade80;
+  padding: 6vh 5vw;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  cursor: pointer;
+}
+
+.boot.done {
+  animation: boot-out 260ms steps(3) forwards;
+}
+
+@keyframes boot-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.boot-log {
+  font: inherit;
+  font-size: clamp(15px, 2.1vw, 24px);
+  line-height: 1.35;
+  white-space: pre-wrap;
+  text-shadow: 0 0 6px #15803d, 0 2px 0 #052e16;
+  flex: 1;
+  overflow: hidden;
+}
+
+.boot-log .ok {
+  color: #4ade80;
+}
+
+.boot-log .warn {
+  color: #facc15;
+}
+
+.boot-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: clamp(14px, 1.8vw, 20px);
+}
+
+.boot-bar {
+  flex: 1;
+  height: 22px;
+  border: 2px solid #22d3ee;
+  background: #05201f;
+  padding: 3px;
+  box-shadow: 0 0 0 2px #042020;
+}
+
+.boot-bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: repeating-linear-gradient(90deg, #22d3ee 0 10px, #0e7490 10px 14px);
+}
+
+.boot-pct {
+  min-width: 5ch;
+  color: #22d3ee;
+  text-align: right;
+}
+
+.boot-skip {
+  font-size: clamp(12px, 1.5vw, 16px);
+  color: #3f6b52;
+  animation: blink 1.1s steps(1) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ===================== DESKTOP ===================== */
+.desktop {
+  position: fixed;
+  inset: 0;
+  padding-bottom: var(--bar);
+  isolation: isolate;
+}
+
+.wallpaper {
+  position: absolute;
+  inset: 0;
+  background: var(--desk-a);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%2316162b'/%3E%3Crect width='4' height='4' fill='%231d1d38'/%3E%3Crect x='4' y='4' width='4' height='4' fill='%231d1d38'/%3E%3C/svg%3E");
+}
+
+.wallpaper-logo {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.1;
+}
+
+.wallpaper-logo span {
+  display: block;
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(34px, 11vw, 132px);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: #7dd3fc;
+  text-shadow: 6px 6px 0 #2a2a5e;
+}
+
+.wallpaper-sub {
+  margin-top: 14px !important;
+  font-size: clamp(11px, 2.4vw, 24px) !important;
+  color: #c084fc !important;
+  letter-spacing: 0.5em !important;
+  text-shadow: 3px 3px 0 #2a2a5e !important;
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 45%,
+      transparent 40%, rgba(5, 5, 15, 0.62) 100%);
+}
+
+.scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.14;
+  background: repeating-linear-gradient(180deg,
+      rgba(0, 0, 0, 0.5) 0 1px, transparent 1px 3px);
+  mix-blend-mode: multiply;
+}
+
+/* ===================== DESKTOP ICONS ===================== */
+/* .desktop reserves --bar of padding for the taskbar. These children are
+   absolutely positioned, which resolves against the padding box, so they have
+   to subtract the taskbar height themselves or they slide underneath it. */
+.icons {
+  position: absolute;
+  inset: 8px 8px calc(var(--bar) + 8px) 8px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(6, minmax(0, 1fr));
+  justify-content: start;
+  gap: 4px;
+  align-content: start;
+  overflow: hidden;
+}
+
+/* Fewer icons per column on short screens, so a row can never squeeze under
+   104px and collide with the taskbar. */
+@media (max-height: 700px) {
+  .icons {
+    grid-template-rows: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (max-height: 600px) {
+  .icons {
+    grid-template-rows: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-height: 480px) {
+  .icons {
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.dicon {
+  position: relative;
+  width: 96px;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 3px;
+  background: none;
+  border: 2px solid transparent;
+  color: #e9e9f6;
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.05;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dicon .art {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(2px 2px 0 rgba(0, 0, 0, 0.55));
+  transition: transform 90ms steps(2);
+}
+
+.dicon .art svg {
+  width: 100%;
+  height: 100%;
+}
+
+.dicon .lbl {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-shadow: 1px 1px 0 #000, 0 0 3px #000;
+}
+
+.dicon:hover {
+  border-color: #6a6a92;
+  background: rgba(120, 120, 200, 0.18);
+}
+
+.dicon:focus-visible {
+  outline: 2px dotted var(--accent);
+  outline-offset: -4px;
+}
+
+.dicon.sel {
+  border-color: var(--accent);
+  background: rgba(34, 211, 238, 0.16);
+}
+
+.dicon:active .art {
+  transform: scale(0.85);
+}
+
+.dicon .playcount {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  padding: 0 4px;
+  background: var(--ink);
+  color: var(--accent);
+  font-size: 14px;
+  line-height: 16px;
+  letter-spacing: 0.04em;
+  box-shadow: 0 0 0 2px #10101f;
+}
+
+/* ===================== RECENTS ===================== */
+.recents {
+  position: absolute;
+  left: 112px;
+  bottom: calc(var(--bar) + 8px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 6px 8px;
+  background: #10101f;
+  border: 2px solid #2a2a4a;
+  box-shadow: var(--bevel-out);
+  max-width: min(560px, 62vw);
+}
+
+.recents-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: #6a6a92;
+  white-space: nowrap;
+}
+
+.recents-row {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.recents-row::-webkit-scrollbar {
+  display: none;
+}
+
+.rchip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 4px;
+  background: #1b1b33;
+  border: 2px solid #35355c;
+  color: #c3c3d6;
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rchip svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.rchip:hover {
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* ===================== WINDOWS ===================== */
+.window-layer {
+  position: absolute;
+  inset: 0 0 var(--bar) 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.win {
+  position: absolute;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 260px;
+  min-height: 180px;
+  background: var(--face);
+  border: 2px solid var(--ink);
+  box-shadow: var(--bevel-out), 6px 6px 0 rgba(0, 0, 0, 0.45);
+  animation: win-in 120ms steps(3);
+}
+
+@keyframes win-in {
+  from {
+    transform: scale(0.86);
+    opacity: 0;
+  }
+}
+
+.win.min {
+  display: none;
+}
+
+.win.max {
+  border: 0;
+  box-shadow: none;
+}
+
+.win.max .win-title {
+  padding-left: 6px;
+}
+
+.win.dragging,
+.win.dragging * {
+  user-select: none;
+  cursor: grabbing !important;
+}
+
+.win-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 3px 0 5px;
+  background: var(--face-dk);
+  color: #16162b;
+  cursor: grab;
+  flex: 0 0 auto;
+  user-select: none;
+}
+
+.win.active .win-title {
+  background: var(--accent);
+  color: #0b0b12;
+  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.win-title .wt-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.win-title .wt-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.win-name {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: clip;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.win-btns {
+  display: flex;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.wb {
+  width: 18px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  background: var(--face);
+  border: 0;
+  box-shadow: var(--bevel-out);
+  cursor: pointer;
+  padding: 0;
+}
+
+.wb:active {
+  box-shadow: var(--bevel-in);
+}
+
+.wb::before {
+  content: '';
+  display: block;
+  background: var(--ink);
+}
+
+.wb.min::before {
+  width: 8px;
+  height: 3px;
+  margin-top: 6px;
+}
+
+.wb.max::before {
+  width: 9px;
+  height: 9px;
+  background: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--face);
+}
+
+/* hard-edged X, drawn as a clip-path so nothing anti-aliases */
+.wb.close::after {
+  content: '';
+  width: 11px;
+  height: 11px;
+  background: var(--ink);
+  clip-path: polygon(0 0, 26% 0, 50% 24%, 74% 0, 100% 0, 62% 50%, 100% 100%, 74% 100%, 50% 76%, 26% 100%, 0 100%, 38% 50%);
+}
+
+.wb.close:hover {
+  background: #ef4444;
+}
+
+.wb.close:hover::after {
+  background: #fff;
+}
+
+.win-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #0b0b14;
+}
+
+.win-strip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 22px;
+  padding: 0 5px;
+  background: var(--face-dk);
+  color: #16162b;
+  font-size: 16px;
+  overflow: hidden;
+}
+
+.win-strip .cat {
+  padding: 0 5px;
+  background: var(--ink);
+  color: var(--face);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+
+.win-strip .msg {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+}
+
+.win-strip .grow {
+  flex: 1;
+}
+
+.load {
+  flex: 0 0 auto;
+  height: 6px;
+  background: #2a2a45;
+}
+
+.load i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 140ms linear;
+}
+
+.win-frame {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  background: #0b0b14;
+}
+
+.win-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: #0b0b14;
+}
+
+.win-frame.loading::after {
+  content: 'LOADING...';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--face-dk);
+  font-size: 20px;
+  letter-spacing: 0.2em;
+  background: repeating-linear-gradient(45deg,
+      #0b0b14 0 8px, #10101f 8px 16px);
+}
+
+.win-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  text-align: center;
+  background: #16162b;
+  color: #e9e9f6;
+}
+
+.win-error h3 {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  color: #ef4444;
+  line-height: 1.6;
+}
+
+.win-error p {
+  font-size: 17px;
+  opacity: 0.8;
+  max-width: 34ch;
+}
+
+.px-btn {
+  font: inherit;
+  font-size: 17px;
+  padding: 4px 12px;
+  background: var(--face);
+  color: var(--ink);
+  border: 0;
+  box-shadow: var(--bevel-out);
+  cursor: pointer;
+}
+
+.px-btn:hover {
+  background: #fff;
+}
+
+.px-btn:active {
+  box-shadow: var(--bevel-in);
+}
+
+.px-btn.alt {
+  background: #1b1b33;
+  color: var(--face);
+  box-shadow: 2px 2px 0 #000, inset 1px 1px 0 #3d3d63,
+    inset -1px -1px 0 #0a0a14;
+}
+
+.px-btn.alt:hover {
+  background: #262645;
+  color: #fff;
+}
+
+.px-btn.mini {
+  flex: 0 0 auto;
+  font-size: 15px;
+  line-height: 18px;
+  padding: 0 7px;
+  color: #16162b;
+}
+
+.px-btn.mini:hover {
+  background: #fff;
+}
+
+.win-grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  z-index: 3;
+  background: repeating-linear-gradient(135deg,
+      transparent 0 3px, rgba(13, 13, 22, 0.55) 3px 5px);
+}
+
+.win.max .win-grip {
+  display: none;
+}
+
+/* ===================== TASKBAR ===================== */
+.taskbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--bar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  background: var(--face);
+  border-top: 2px solid var(--face-lt);
+  box-shadow: inset 0 2px 0 var(--face-lt);
+  z-index: 400;
+}
+
+.start-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 9px 0 7px;
+  background: var(--face);
+  border: 0;
+  box-shadow: var(--bevel-out);
+  color: var(--ink);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.start-btn:active,
+.start-btn[aria-expanded='true'] {
+  box-shadow: var(--bevel-in);
+}
+
+.start-glyph {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  background: conic-gradient(from 45deg,
+      #ef4444 0 25%, #4ade80 0 50%, #60a5fa 0 75%, #facc15 0);
+  image-rendering: pixelated;
+}
+
+.start-glyph::after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 4px;
+  margin: 5px;
+  background: var(--ink);
+}
+
+.task-items {
+  flex: 1;
+  display: flex;
+  gap: 3px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.task-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 168px;
+  height: 26px;
+  padding: 0 8px 0 5px;
+  background: var(--face);
+  border: 0;
+  box-shadow: var(--bevel-in);
+  color: #4a4a63;
+  font: inherit;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.task-btn svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.task-btn span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.task-btn.active {
+  box-shadow: var(--bevel-out);
+  color: var(--ink);
+  background: var(--face-lt);
+  font-weight: 700;
+}
+
+.tray {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  padding: 0 8px;
+  flex: 0 0 auto;
+  box-shadow: var(--bevel-in);
+  color: #3a3a55;
+  font-size: 17px;
+}
+
+.tray-count {
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
+.tray-clock {
+  min-width: 5ch;
+  text-align: right;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* ===================== MENUS ===================== */
+.menu {
+  position: absolute;
+  z-index: 600;
+  background: var(--face);
+  border: 2px solid var(--ink);
+  box-shadow: var(--bevel-out), 6px 6px 0 rgba(0, 0, 0, 0.45);
+  color: var(--ink);
+  padding: 3px;
+}
+
+.start-menu {
+  left: 4px;
+  bottom: calc(var(--bar) + 2px);
+  width: 254px;
+  display: flex;
+  flex-direction: column;
+}
+
+.start-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+  margin-bottom: 3px;
+  background: linear-gradient(90deg, #1d4ed8, #0e7490);
+  color: #fff;
+}
+
+.start-head-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 13px;
+  text-shadow: 2px 2px 0 #0b0b12;
+}
+
+.start-head-ver {
+  font-size: 15px;
+  opacity: 0.85;
+}
+
+.start-scroll {
+  max-height: min(58vh, 460px);
+  overflow-y: auto;
+  scrollbar-color: var(--face-dkr) var(--face);
+  scrollbar-width: thin;
+}
+
+.start-section-label {
+  padding: 5px 8px 3px;
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  color: #5a5a78;
+  border-bottom: 2px solid #a6a6c0;
+  margin-bottom: 3px;
+}
+
+.start-games {
+  display: flex;
+  flex-direction: column;
+}
+
+.start-sep {
+  height: 2px;
+  margin: 3px 0;
+  background: #a6a6c0;
+  box-shadow: 0 2px 0 var(--face-lt);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 7px;
+  background: none;
+  border: 0;
+  color: var(--ink);
+  font: inherit;
+  font-size: 17px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: #1d4ed8;
+  color: #fff;
+  outline: none;
+}
+
+.menu-item .mi-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.menu-item .mi-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.mi-glyph {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  background: var(--ink);
+}
+
+.mi-about {
+  background: var(--ink);
+  box-shadow: inset 0 0 0 3px #facc15;
+}
+
+.mi-reboot {
+  background: var(--ink);
+  clip-path: polygon(0 0, 60% 0, 60% 30%, 100% 30%, 40% 100%, 40% 65%, 0 65%);
+}
+
+.mi-closeall {
+  background: var(--ink);
+  clip-path: polygon(0 0, 100% 0, 100% 35%, 35% 100%, 0 100%, 0 65%, 65% 0);
+}
+
+.ctx-menu {
+  min-width: 172px;
+}
+
+/* ===================== BOOT-TIME MODAL CONTENT ===================== */
+.about-body {
+  flex: 1;
+  overflow: auto;
+  padding: 18px 20px;
+  background: var(--face);
+  color: var(--ink);
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.about-body h4 {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 12px;
+  margin: 18px 0 8px;
+  color: #1d4ed8;
+}
+
+.about-body h4:first-child {
+  margin-top: 0;
+}
+
+.about-body p {
+  margin-bottom: 8px;
+}
+
+.about-body code {
+  font-family: inherit;
+  background: #a6a6c0;
+  padding: 0 4px;
+  box-shadow: inset 1px 1px 0 #8a8aa8;
+}
+
+.about-body ul {
+  margin: 0 0 8px 20px;
+}
+
+.about-body li {
+  margin-bottom: 3px;
+}
+
+.about-body .stat-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.stat {
+  flex: 1 1 84px;
+  padding: 6px 8px;
+  background: #d5d5e6;
+  box-shadow: var(--bevel-in);
+  text-align: center;
+}
+
+.stat b {
+  display: block;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 15px;
+  color: #1d4ed8;
+}
+
+.stat i {
+  display: block;
+  font-style: normal;
+  font-size: 15px;
+  color: #55557a;
+  margin-top: 4px;
+}
+
+/* ===================== CONFETTI ===================== */
+.confetti {
+  position: fixed;
+  z-index: 800;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+  animation: fall 900ms steps(12) forwards;
+}
+
+@keyframes fall {
+  to {
+    transform: translate(var(--dx), var(--dy)) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* ===================== MOBILE ===================== */
+@media (max-width: 720px) {
+  :root {
+    --bar: 40px;
+  }
+
+  .icons {
+    grid-auto-flow: row;
+    grid-template-rows: none;
+    grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+    justify-content: stretch;
+    gap: 2px;
+    inset: 6px 6px calc(var(--bar) + 6px);
+  }
+
+  .dicon {
+    width: 100%;
+    height: 88px;
+    font-size: 15px;
+  }
+
+  .dicon .art {
+    width: 40px;
+    height: 40px;
+  }
+
+  .recents {
+    left: 6px;
+    right: 6px;
+    bottom: calc(var(--bar) + 6px);
+    max-width: none;
+  }
+
+  .tray-count {
+    display: none;
+  }
+
+  .start-menu {
+    width: min(300px, calc(100vw - 8px));
+  }
+
+  .win {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .task-btn {
+    max-width: 96px;
+  }
+
+  .wb.max,
+  .win-grip {
+    display: none;
+  }
+}
+
+@media (max-height: 520px) {
+  .wallpaper-logo {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+  </style>
+  <link rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%230d0d16'/%3E%3Crect x='3' y='3' width='10' height='8' fill='%23f2f2f7'/%3E%3Crect x='5' y='6' width='6' height='1' fill='%230d0d16'/%3E%3Crect x='5' y='8' width='4' height='1' fill='%230d0d16'/%3E%3Crect x='2' y='13' width='12' height='1' fill='%23facc15'/%3E%3C/svg%3E">
+</head>
+
+<body>
+
+  <!-- ===================== BOOT SEQUENCE ===================== -->
+  <div id="boot" class="boot">
+    <pre id="boot-log" class="boot-log" aria-live="polite"></pre>
+    <div class="boot-bar-wrap">
+      <div class="boot-bar"><i id="boot-fill"></i></div>
+      <span id="boot-pct" class="boot-pct">0%</span>
+    </div>
+    <p class="boot-skip">press any key to skip</p>
+  </div>
+
+  <!-- ===================== DESKTOP ===================== -->
+  <div id="desktop" class="desktop" hidden>
+
+    <div class="wallpaper" aria-hidden="true">
+      <div class="wallpaper-logo">
+        <span>KALAN</span>
+        <span class="wallpaper-sub">OS 5.1</span>
+      </div>
+    </div>
+
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="scanlines" aria-hidden="true"></div>
+
+    <!-- icon grid + start-menu rail -->
+    <main class="icons" id="icons" aria-label="Installed games"></main>
+
+    <!-- "recently played" strip, filled from localStorage -->
+    <aside class="recents" id="recents" hidden>
+      <h2 class="recents-title">RECENT</h2>
+      <div class="recents-row" id="recents-row"></div>
+    </aside>
+
+    <!-- windows are appended here -->
+    <div id="windows" class="window-layer"></div>
+
+    <!-- ===================== CONTEXT MENU ===================== -->
+    <div id="ctx" class="menu ctx-menu" hidden role="menu"></div>
+
+    <!-- ===================== TASKBAR ===================== -->
+    <div class="taskbar">
+      <button class="start-btn" id="start-btn" aria-haspopup="true" aria-expanded="false">
+        <span class="start-glyph" aria-hidden="true"></span>
+        <span class="start-text">START</span>
+      </button>
+
+      <div class="task-items" id="task-items"></div>
+
+      <div class="tray">
+        <span class="tray-count" id="tray-count">11 GAMES</span>
+        <span class="tray-clock" id="tray-clock">--:--</span>
+      </div>
+    </div>
+
+    <!-- ===================== START MENU ===================== -->
+    <div id="start-menu" class="menu start-menu" hidden role="menu">
+      <div class="start-head">
+        <div class="start-head-name">KALAN</div>
+        <div class="start-head-ver">OS 5.1</div>
+      </div>
+      <div class="start-scroll">
+        <div class="start-section-label">GAMES</div>
+        <div id="start-games" class="start-games"></div>
+        <div class="start-sep"></div>
+        <button class="menu-item" data-cmd="about">
+          <span class="mi-glyph mi-about" aria-hidden="true"></span>
+          <span>About KALAN OS</span>
+        </button>
+        <button class="menu-item" data-cmd="reboot">
+          <span class="mi-glyph mi-reboot" aria-hidden="true"></span>
+          <span>Reboot</span>
+        </button>
+        <button class="menu-item" data-cmd="closeall">
+          <span class="mi-glyph mi-closeall" aria-hidden="true"></span>
+          <span>Close all windows</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+/* ==========================================================================
+   KALAN OS 5.1  --  game manifest
+   --------------------------------------------------------------------------
+   THIS IS THE ONLY FILE YOU NEED TO EDIT TO ADD A GAME.
+
+   Add one object to GAMES below and it appears on the desktop, in the Start
+   menu, and in the taskbar automatically. No other file needs to change.
+
+   Sprite format: 16 rows of 16 characters, top to bottom.
+     '.' = transparent
+     everything else = a key from PALETTE below
+
+   Palette keys:
+     0 black        1 white        2 light grey   3 grey      4 dark slate
+     r red          R dark red     o orange       y yellow    Y dark yellow
+     g green        G dark green   c cyan         C dark cyan b blue
+     B dark blue    p purple       P dark purple  m brown     M dark brown
+     s silver
+   ========================================================================== */
+
+window.PALETTE = {
+  '0': '#0d0d16', '1': '#f2f2f7', '2': '#b8b8c8', '3': '#6b6b85', '4': '#2a2a3d',
+  'r': '#ef4444', 'R': '#991b1b', 'o': '#fb923c', 'y': '#facc15', 'Y': '#a16207',
+  'g': '#4ade80', 'G': '#15803d', 'c': '#22d3ee', 'C': '#0e7490', 'b': '#60a5fa',
+  'B': '#1d4ed8', 'p': '#c084fc', 'P': '#7e22ce', 'm': '#b45309', 'M': '#78350f',
+  's': '#94a3b8',
+};
+
+window.GAMES = [
+  {
+    id: 'puzzle-time-attack',
+    title: 'Puzzle Time Attack',
+    blurb: 'Race the clock through escalating brain teasers.',
+    category: 'Puzzle',
+    accent: '#facc15',
+    url: 'https://puzzle-time-attack.vercel.app',
+    sprite: [
+      '................',
+      '......0000......',
+      '.....0yyyy0.....',
+      '....0yy00yy0....',
+      '...0yyy00yyy0...',
+      '...0yyy00yyy0...',
+      '..0yyyy00yyyy0..',
+      '..0yyyy00000y0..',
+      '..0yyyy00rr0y0..',
+      '..0yyyyyyyryy0..',
+      '...0yyyyyyyyr0..',
+      '...0yyyyyyyy0...',
+      '....0yyyyyy0....',
+      '.....0yyyy0.....',
+      '......0000......',
+      '................',
+    ],
+  },
+  {
+    id: 'conways-climber',
+    title: "Conway's Climber",
+    blurb: 'A colony of cells climbing the grid, one generation at a time.',
+    category: 'Simulation',
+    accent: '#4ade80',
+    url: 'https://conways-climber.vercel.app',
+    sprite: [
+      '................',
+      '................',
+      '................',
+      '................',
+      '.0000.0000.0000.',
+      '.0440.0gg0.0440.',
+      '.0440.0gg0.0440.',
+      '.0000.0000.0000.',
+      '................',
+      '.0000.0000.0000.',
+      '.0440.0440.0440.',
+      '.0440.0440.0440.',
+      '.0000.0000.0000.',
+      '................',
+      '................',
+      '................',
+    ],
+  },
+  {
+    id: 'neon-fall',
+    title: 'Neon Fall',
+    blurb: 'Blocks fall fast. Stack them, clear the lines, survive.',
+    category: 'Arcade',
+    accent: '#c084fc',
+    url: 'https://neon-fall.vercel.app',
+    sprite: [
+      '................',
+      '.c..............',
+      '................',
+      '................',
+      '....11111111....',
+      '....0pppppp0....',
+      '.c..0pppppp0..c.',
+      '....0pppppp0....',
+      '.cc.0pppppp0..c.',
+      '....0pppppp0....',
+      '.c..0pppppp0..c.',
+      '....0pppppp0....',
+      '................',
+      '.cccccccccccccc.',
+      '..000000000000..',
+      '................',
+    ],
+  },
+  {
+    id: 'simple-sandbox',
+    title: 'Simple Sandbox',
+    blurb: 'A tidy physics box. Spawn, drop, break everything.',
+    category: 'Sandbox',
+    accent: '#fb7185',
+    url: 'https://simple-sandbox.vercel.app',
+    sprite: [
+      '................',
+      '................',
+      '................',
+      '....0gggggg0....',
+      '....0gggggG0....',
+      '....0gggggG0....',
+      '....00000000....',
+      '...0yyyyyyyy0...',
+      '...0yyyyyyyY0...',
+      '...0yyyyyyyY0...',
+      '...0000000000...',
+      '..0rrrrrrrrrr0..',
+      '..0rrrrrrrrrR0..',
+      '..0rrrrrrrrrR0..',
+      '..000000000000..',
+      '................',
+    ],
+  },
+  {
+    id: 'kcl-two',
+    title: "Kalan's Coding Language",
+    blurb: 'A tiny programming language you can actually write and run.',
+    category: 'Tool',
+    accent: '#22d3ee',
+    url: 'https://kcl-two.vercel.app',
+    sprite: [
+      '................',
+      '................',
+      '0000000000000000',
+      '.0bbbbbbbbbbbb0.',
+      '.0bbbbbbbbbbbb0.',
+      '.00000000000000.',
+      '.04444444444440.',
+      '.0g.44444444440.',
+      '.0gg44444444440.',
+      '.0g.4cc44444440.',
+      '.04444444444440.',
+      '.04444444444440.',
+      '.04444444444440.',
+      '0000000000000000',
+      '................',
+      '................',
+    ],
+  },
+  {
+    id: 'squishy-ball-runner',
+    title: 'Squishy Ball Runner',
+    blurb: 'A bouncy ball with places to be. Mostly past them.',
+    category: 'Arcade',
+    accent: '#fb923c',
+    url: 'https://squishy-ball-runner.vercel.app',
+    sprite: [
+      '................',
+      '................',
+      'cc..............',
+      '................',
+      '.cc.............',
+      '................',
+      '....00000000....',
+      'cc.0oooooooo0...',
+      '...0oooooooooo0.',
+      '...01ooooooooo0.',
+      '.cc0ooooooooo0..',
+      '...0ooooooooo0..',
+      '....00000000....',
+      '4444444444444444',
+      '................',
+      '................',
+    ],
+  },
+  {
+    id: 'mc-textures',
+    title: "Minecraft's Textures",
+    blurb: 'Browse the whole block texture library, block by block.',
+    category: 'Viewer',
+    accent: '#84cc16',
+    url: 'https://mc-textures.vercel.app',
+    sprite: [
+      '................',
+      '......gggg......',
+      '....gggggggg....',
+      '..gggggggggggg..',
+      '.gggggggggggggg.',
+      '.0mmmmmmMMMMMM0.',
+      '.0m0mm0mM0MM0M0.',
+      '.0mmmmmmMMMMMM0.',
+      '.0m0mmm0M0MMM0..',
+      '.0mmmmmmMMMMMM0.',
+      '.0m0mmmmM0MMM0..',
+      '.0mmmmmmMMMMMM0.',
+      '.0mmmmmmMMMMMM0.',
+      '.00000000000000.',
+      '................',
+      '................',
+    ],
+  },
+  {
+    id: 'kalansplane',
+    title: "Kalan's Plane",
+    blurb: 'A little plane over open country and a lot of sky.',
+    category: 'Arcade',
+    accent: '#38bdf8',
+    url: 'https://kalansplane.vercel.app',
+    sprite: [
+      '................',
+      '......0000......',
+      '......c112......',
+      '......c112......',
+      '......c112......',
+      '......c112......',
+      '..000011110000..',
+      '..011111111110..',
+      '..001111111100..',
+      '......c112......',
+      '......c112......',
+      '....01111110....',
+      '....00000000....',
+      '................',
+      '................',
+      '................',
+    ],
+  },
+  {
+    id: 'mazeofballs',
+    title: 'Maze of Balls',
+    blurb: 'Roll the ball through the green walls. They do not move.',
+    category: 'Puzzle',
+    accent: '#34d399',
+    url: 'https://mazeofballs.vercel.app',
+    sprite: [
+      'gggggggggggggggg',
+      'g...g.......g..g',
+      'g.g.g.ggggg.g.g.',
+      'g.g.g.....g.g.g.',
+      'g.g.ggggg.g.g.g.',
+      'g.g.......g.g.g.',
+      'g.ggggggg.g.g.g.',
+      'g.........g.g.g.',
+      'g.ggggggggg.g.g.',
+      'g...........g.g.',
+      'g.ggggggggggg.g.',
+      'gc.............g',
+      'g.ggggggggggg.g.',
+      'g..............g',
+      'g.ggggggggggg.g.',
+      'g..............g',
+    ],
+  },
+  {
+    id: 'kalanski',
+    title: "Kalan's Ski",
+    blurb: 'Carve the slope, clip the gates, beat the clock.',
+    category: 'Arcade',
+    accent: '#60a5fa',
+    url: 'https://kalanski.vercel.app',
+    sprite: [
+      '...........rrrr.',
+      '......00....r...',
+      '.....0ss0...r...',
+      '.....0ss0...r...',
+      '....00oo00..r...',
+      '....0oooo0..r...',
+      '....0b00b0..r...',
+      '....221111111111',
+      '.....22111111111',
+      '......2211111111',
+      '.......221111111',
+      '........22111111',
+      '.........2211111',
+      '..........221111',
+      '...........22111',
+      '............2211',
+    ],
+  },
+  {
+    id: 'kalansea',
+    title: "Kalan's Sea",
+    blurb: 'An endless ocean. Sail it, name things, get lost.',
+    category: 'Ambient',
+    accent: '#a78bfa',
+    url: 'https://kalansea.vercel.app',
+    sprite: [
+      '................',
+      '......yyyy......',
+      '.....yyyyyy.....',
+      '....yyyyyyyy....',
+      '....yyyyyyyy....',
+      '.....ooyyoo.....',
+      '......oooo......',
+      '.11bbbb..11bbbb.',
+      '.bbbbbbbbbbbbbb.',
+      '.cccccccccccccc.',
+      '..11bbbb..11bbb.',
+      '..bbbbbbbbbbbb..',
+      '..cccccccccccc..',
+      '.11bbbb..11bbbb.',
+      '.bbbbbbbbbbbbbb.',
+      '.cccccccccccccc.',
+    ],
+  },
+];
+
+  </script>
+  <script>
+/* ==========================================================================
+   KALAN OS 5.1  --  window manager + shell
+   Depends on games.js (window.GAMES, window.PALETTE)
+   ========================================================================== */
+(function () {
+  'use strict';
+
+  var GAMES = window.GAMES;
+  var PALETTE = window.PALETTE;
+
+  if (!GAMES || !GAMES.length) {
+    document.body.innerHTML =
+      '<pre style="padding:24px;color:#ef4444;font:16px monospace">' +
+      'FATAL: games.js failed to load, or window.GAMES is empty.</pre>';
+    return;
+  }
+
+  /* ---------------------------------------------------------------- utils */
+
+  var $ = function (sel, root) { return (root || document).querySelector(sel); };
+
+  function esc(str) {
+    return String(str).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  /* Merge each horizontal run of equal pixels into one <rect>. Keeps the DOM
+     small enough that 11 icons stay cheap to render. */
+  function spriteSVG(sprite) {
+    var out = '';
+    for (var y = 0; y < sprite.length; y++) {
+      var row = sprite[y];
+      var x = 0;
+      while (x < row.length) {
+        var c = row[x];
+        var w = 1;
+        while (x + w < row.length && row[x + w] === c) w++;
+        if (c !== '.' && PALETTE[c]) {
+          out += '<rect x="' + x + '" y="' + y + '" width="' + w +
+            '" height="1" fill="' + PALETTE[c] + '"/>';
+        }
+        x += w;
+      }
+    }
+    return '<svg viewBox="0 0 16 16" class="pix" shape-rendering="crispEdges" ' +
+      'aria-hidden="true" focusable="false">' + out + '</svg>';
+  }
+
+  var ICONS = {};
+  GAMES.forEach(function (g) { ICONS[g.id] = spriteSVG(g.sprite); });
+  function icon(id) { return ICONS[id] || ''; }
+
+  var STORE_PLAYS = 'kalanos.plays';
+  var STORE_ORDER = 'kalanos.order';
+
+  function readJSON(key, fallback) {
+    try {
+      var raw = localStorage.getItem(key);
+      var val = raw ? JSON.parse(raw) : null;
+      return val && typeof val === 'object' ? val : fallback;
+    } catch (e) { return fallback; }
+  }
+  function writeJSON(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* private mode */ }
+  }
+
+  function recordPlay(id) {
+    var plays = readJSON(STORE_PLAYS, {});
+    plays[id] = (plays[id] || 0) + 1;
+    writeJSON(STORE_PLAYS, plays);
+
+    var order = readJSON(STORE_ORDER, []);
+    order = order.filter(function (x) { return x !== id; });
+    order.unshift(id);
+    writeJSON(STORE_ORDER, order.slice(0, 8));
+
+    renderRecents();
+    renderBadges();
+  }
+
+  /* ------------------------------------------------------------- boot ---- */
+
+  var bootEl = $('#boot');
+  var bootLog = $('#boot-log');
+  var bootFill = $('#boot-fill');
+  var bootPct = $('#boot-pct');
+  var bootSkipped = false;
+
+  var BOOT_LINES = [
+    ['KALAN BIOS v5.1   (C) 2026 KALAN SYSTEMS', ''],
+    ['CPU: PIXEL-1  @ 640 MHz  ............ ', 'OK'],
+    ['GPU: CHROMA-64  16 COLOURS  .......... ', 'OK'],
+    ['MEM: 640 KB   (BLOCKSIZE 64K)  ....... ', 'OK'],
+    ['DETECTING IDE .... VERCEL.CLOUD  ..... ', 'OK'],
+    ['MOUSE ............ PS/2 PORT 1  ....... ', 'OK'],
+    ['SOUND ............ NONE (PER DESIGN) .. ', 'OK'],
+    ['LOADING KERNEL KALANOS 5.1 ............ ', '']
+  ];
+
+  function wait(ms) {
+    return new Promise(function (res) {
+      if (bootSkipped) return res();
+      setTimeout(res, ms);
+    });
+  }
+
+  async function runBoot() {
+    var skip = /[?&]noboot=1/.test(location.search);
+    if (skip) { bootSkipped = true; return finishBoot(); }
+
+    for (var i = 0; i < BOOT_LINES.length; i++) {
+      var line = BOOT_LINES[i];
+      var text = line[0] + (line[1] ? line[1] : '');
+      for (var c = 0; c < text.length; c++) {
+        bootLog.textContent = bootLog.textContent + text[c];
+        if (c % 3 === 0) await wait(9);
+      }
+      bootLog.textContent += '\n';
+      await wait(40);
+    }
+
+    for (var p = 0; p <= 100; p += 4) {
+      bootFill.style.width = p + '%';
+      bootPct.textContent = p + '%';
+      await wait(22);
+    }
+
+    await wait(180);
+    finishBoot();
+  }
+
+  function finishBoot() {
+    bootEl.classList.add('done');
+    var desk = $('#desktop');
+    desk.hidden = false;
+    setTimeout(function () { bootEl.remove(); }, 300);
+    log('desktop ready');
+    renderIcons();
+    renderStartGames();
+    renderRecents();
+    startClock();
+    wireShell();
+  }
+
+  function log(msg) { if (window.console) console.log('[KALAN OS] ' + msg); }
+
+  bootEl.addEventListener('click', skipBoot);
+  document.addEventListener('keydown', function once(e) {
+    if (bootEl.isConnected) { skipBoot(); document.removeEventListener('keydown', once); }
+  });
+
+  function skipBoot() {
+    if (bootSkipped) return;
+    bootSkipped = true;
+    finishBoot();
+  }
+
+  /* ---------------------------------------------------------- desktop ---- */
+
+  var iconsEl = $('#icons');
+  var iconBtns = [];
+
+  function renderIcons() {
+    iconsEl.innerHTML = '';
+    iconBtns = [];
+
+    GAMES.forEach(function (game, idx) {
+      var b = document.createElement('button');
+      b.className = 'dicon';
+      b.type = 'button';
+      b.dataset.id = game.id;
+      b.dataset.idx = idx;
+      b.title = game.title + ' - ' + game.blurb;
+      b.setAttribute('aria-label', 'Open ' + game.title);
+      b.innerHTML =
+        '<span class="art">' + icon(game.id) + '</span>' +
+        '<span class="lbl">' + esc(game.title) + '</span>' +
+        '<span class="playcount" hidden></span>';
+      iconsEl.appendChild(b);
+      iconBtns.push(b);
+    });
+
+    iconsEl.addEventListener('click', onIconClick);
+    iconsEl.addEventListener('dblclick', function (e) {
+      var b = e.target.closest('.dicon');
+      if (b) openGame(b.dataset.id);
+    });
+    iconsEl.addEventListener('contextmenu', onIconContext);
+    renderBadges();
+  }
+
+  function onIconClick(e) {
+    var b = e.target.closest('.dicon');
+    if (!b) return;
+    iconBtns.forEach(function (x) { x.classList.remove('sel'); });
+    b.classList.add('sel');
+    openGame(b.dataset.id);
+  }
+
+  function onIconContext(e) {
+    var b = e.target.closest('.dicon');
+    if (!b) return;
+    e.preventDefault();
+    var g = byId(b.dataset.id);
+    showCtx(e.clientX, e.clientY, [
+      { label: 'Open ' + g.title, glyph: icon(g.id), act: function () { openGame(g.id); } },
+      { label: 'Open in new tab', act: function () { window.open(g.url, '_blank', 'noopener'); recordPlay(g.id); } }
+    ]);
+  }
+
+  function renderBadges() {
+    var plays = readJSON(STORE_PLAYS, {});
+    iconBtns.forEach(function (b) {
+      var n = plays[b.dataset.id] || 0;
+      var badge = b.querySelector('.playcount');
+      if (n > 0) {
+        badge.hidden = false;
+        badge.textContent = n + 'x';
+      } else {
+        badge.hidden = true;
+      }
+    });
+  }
+
+  function byId(id) {
+    for (var i = 0; i < GAMES.length; i++) if (GAMES[i].id === id) return GAMES[i];
+    return null;
+  }
+
+  /* ---------------------------------------------------------- recents ---- */
+
+  function renderRecents() {
+    var wrap = $('#recents');
+    var row = $('#recents-row');
+    var plays = readJSON(STORE_PLAYS, {});
+    var order = readJSON(STORE_ORDER, []).filter(function (id) { return byId(id); });
+
+    if (!order.length) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+    row.innerHTML = '';
+
+    order.slice(0, 6).forEach(function (id) {
+      var g = byId(id);
+      var b = document.createElement('button');
+      b.className = 'rchip';
+      b.type = 'button';
+      b.title = g.title + '  (' + (plays[id] || 0) + ' plays)';
+      b.innerHTML = icon(id) + '<span>' + esc(g.title) + '</span>';
+      b.addEventListener('click', function () { openGame(id); });
+      row.appendChild(b);
+    });
+  }
+
+  /* ---------------------------------------------------------- windows ---- */
+
+  var layer = $('#windows');
+  var taskItems = $('#task-items');
+  var zTop = 10;
+  var windows = [];
+  var cascade = 0;
+
+  function layerBox() {
+    return { w: layer.clientWidth, h: layer.clientHeight };
+  }
+
+  function openGame(id) {
+    var g = byId(id);
+    if (!g) return;
+
+    var existing = windows.filter(function (w) { return w.id === id; })[0];
+    if (existing) {
+      if (existing.min) restore(existing); else focus(existing);
+      return;
+    }
+
+    var box = layerBox();
+    var w = Math.min(880, Math.max(320, box.w - 60));
+    var h = Math.min(600, Math.max(260, box.h - 60));
+    var step = 26;
+    var off = (cascade % 6) * step;
+    cascade++;
+
+    var x = Math.max(4, Math.round((box.w - w) / 2) - 90 + off);
+    var y = Math.max(4, Math.round((box.h - h) / 2) - 60 + off);
+    x = Math.min(x, Math.max(4, box.w - w - 4));
+    y = Math.min(y, Math.max(4, box.h - h - 4));
+
+    var el = document.createElement('section');
+    el.className = 'win';
+    el.dataset.id = id;
+    el.style.setProperty('--accent', g.accent);
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.width = w + 'px';
+    el.style.height = h + 'px';
+
+    el.innerHTML =
+      '<header class="win-title">' +
+      '<span class="wt-icon">' + icon(id) + '</span>' +
+      '<span class="win-name">' + esc(g.title) + '</span>' +
+      '<span class="win-btns">' +
+      '<button class="wb min" title="Minimise" aria-label="Minimise"></button>' +
+      '<button class="wb max" title="Maximise" aria-label="Maximise"></button>' +
+      '<button class="wb close" title="Close" aria-label="Close"></button>' +
+      '</span>' +
+      '</header>' +
+      '<div class="win-body">' +
+      '<div class="win-strip">' +
+      '<span class="cat">' + esc(g.category) + '</span>' +
+      '<span class="msg">' + esc(g.blurb) + '</span>' +
+      '<button class="px-btn mini popout" type="button" title="Open in a real tab">POP OUT</button>' +
+      '</div>' +
+      '<div class="load"><i></i></div>' +
+      '<div class="win-frame loading">' +
+      '<iframe title="' + esc(g.title) + '" src="' + esc(g.url) + '" ' +
+      'allow="fullscreen; gamepad; pointer-lock; autoplay; clipboard-write; cross-origin-isolated" ' +
+      'referrerpolicy="strict-origin-when-cross-origin" loading="eager"></iframe>' +
+      '</div>' +
+      '</div>' +
+      '<div class="win-grip" title="Resize"></div>';
+
+    layer.appendChild(el);
+
+    var win = { id: id, game: g, el: el, min: false, max: false, restore: null };
+    windows.push(win);
+
+    var frame = $('.win-frame', el);
+    var bar = $('.load i', el);
+    var msg = $('.msg', el);
+    var iframe = $('iframe', el);
+    var pct = 0;
+    var ticker = setInterval(function () {
+      pct = Math.min(92, pct + 7 + Math.random() * 11);
+      bar.style.width = pct + '%';
+    }, 110);
+
+    var slowTimer = setTimeout(function () {
+      if (frame.classList.contains('loading')) msg.textContent = 'Slow connection - use POP OUT';
+    }, 8000);
+
+    iframe.addEventListener('load', function () {
+      clearInterval(ticker);
+      clearTimeout(slowTimer);
+      pct = 100;
+      bar.style.width = '100%';
+      frame.classList.remove('loading');
+      msg.textContent = 'running - ' + g.title;
+      recordPlay(id);
+      confetti(el, g.accent);
+    });
+
+    iframe.addEventListener('error', function () {
+      clearInterval(ticker);
+      clearTimeout(slowTimer);
+      showFrameError(frame, g);
+    });
+
+    $('.wb.min', el).addEventListener('click', function (e) { e.stopPropagation(); minimise(win); });
+    $('.wb.max', el).addEventListener('click', function (e) { e.stopPropagation(); toggleMax(win); });
+    $('.wb.close', el).addEventListener('click', function (e) { e.stopPropagation(); closeWin(win); });
+    $('.popout', el).addEventListener('click', function (e) {
+      e.stopPropagation();
+      window.open(g.url, '_blank', 'noopener');
+      recordPlay(id);
+    });
+
+    el.addEventListener('pointerdown', function () { focus(win); }, true);
+    $('.win-title', el).addEventListener('dblclick', function (e) {
+      if (e.target.closest('.wb')) return;
+      toggleMax(win);
+    });
+
+    makeDraggable(win);
+    makeResizable(win);
+
+    focus(win);
+    syncTaskbar();
+    return win;
+  }
+
+  function showFrameError(frame, g) {
+    frame.classList.remove('loading');
+    frame.innerHTML =
+      '<div class="win-error">' +
+      '<h3>COULD NOT<br>LOAD</h3>' +
+      '<p>' + esc(g.title) + ' did not respond. It may be offline, or the ' +
+      'browser may be blocking the frame.</p>' +
+      '<button class="px-btn" type="button">OPEN IN NEW TAB</button>' +
+      '</div>';
+    frame.querySelector('button').addEventListener('click', function () {
+      window.open(g.url, '_blank', 'noopener');
+      recordPlay(g.id);
+    });
+  }
+
+  /* ------------------------------------------------------------ focus ---- */
+
+  function focus(win) {
+    zTop++;
+    win.el.style.zIndex = zTop;
+    windows.forEach(function (w) { w.el.classList.toggle('active', w === win); });
+    syncTaskbar();
+  }
+
+  function minimise(win) {
+    win.min = true;
+    win.el.classList.add('min');
+    var next = windows.filter(function (w) { return !w.min; })
+      .sort(function (a, b) { return (+b.el.style.zIndex || 0) - (+a.el.style.zIndex || 0); })[0];
+    if (next) focus(next); else syncTaskbar();
+  }
+
+  function restore(win) {
+    win.min = false;
+    win.el.classList.remove('min');
+    focus(win);
+  }
+
+  function closeWin(win) {
+    win.el.remove();
+    windows = windows.filter(function (w) { return w !== win; });
+    var next = windows.filter(function (w) { return !w.min; })
+      .sort(function (a, b) { return (+b.el.style.zIndex || 0) - (+a.el.style.zIndex || 0); })[0];
+    if (next) focus(next); else syncTaskbar();
+  }
+
+  function closeAll() {
+    windows.slice().forEach(closeWin);
+  }
+
+  function toggleMax(win) {
+    var el = win.el;
+    if (win.max) {
+      var r = win.restore;
+      el.style.left = r.left;
+      el.style.top = r.top;
+      el.style.width = r.width;
+      el.style.height = r.height;
+      el.classList.remove('max');
+      win.max = false;
+    } else {
+      win.restore = {
+        left: el.style.left, top: el.style.top,
+        width: el.style.width, height: el.style.height
+      };
+      var box = layerBox();
+      el.style.left = '0px';
+      el.style.top = '0px';
+      el.style.width = box.w + 'px';
+      el.style.height = box.h + 'px';
+      el.classList.add('max');
+      win.max = true;
+    }
+    focus(win);
+  }
+
+  /* ------------------------------------------------------ drag/resize ---- */
+
+  function makeDraggable(win) {
+    var bar = $('.win-title', win.el);
+    var startX = 0, startY = 0, origX = 0, origY = 0, active = false;
+
+    bar.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0 || e.target.closest('.wb')) return;
+      if (win.max) return;
+      active = true;
+      startX = e.clientX; startY = e.clientY;
+      origX = win.el.offsetLeft; origY = win.el.offsetTop;
+      win.el.classList.add('dragging');
+      bar.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+
+    bar.addEventListener('pointermove', function (e) {
+      if (!active) return;
+      var box = layerBox();
+      var nx = origX + (e.clientX - startX);
+      var ny = origY + (e.clientY - startY);
+      nx = Math.min(Math.max(nx, -win.el.offsetWidth + 90), box.w - 60);
+      ny = Math.min(Math.max(ny, 0), box.h - 26);
+      win.el.style.left = nx + 'px';
+      win.el.style.top = ny + 'px';
+    });
+
+    function end(e) {
+      if (!active) return;
+      active = false;
+      win.el.classList.remove('dragging');
+      try { bar.releasePointerCapture(e.pointerId); } catch (err) { /* already gone */ }
+    }
+    bar.addEventListener('pointerup', end);
+    bar.addEventListener('pointercancel', end);
+  }
+
+  function makeResizable(win) {
+    var grip = $('.win-grip', win.el);
+    var sx = 0, sy = 0, ow = 0, oh = 0, active = false;
+
+    grip.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0) return;
+      active = true;
+      sx = e.clientX; sy = e.clientY;
+      ow = win.el.offsetWidth; oh = win.el.offsetHeight;
+      grip.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    grip.addEventListener('pointermove', function (e) {
+      if (!active) return;
+      win.el.style.width = Math.max(260, ow + (e.clientX - sx)) + 'px';
+      win.el.style.height = Math.max(180, oh + (e.clientY - sy)) + 'px';
+    });
+
+    function end(e) {
+      if (!active) return;
+      active = false;
+      try { grip.releasePointerCapture(e.pointerId); } catch (err) { /* already gone */ }
+    }
+    grip.addEventListener('pointerup', end);
+    grip.addEventListener('pointercancel', end);
+  }
+
+  /* --------------------------------------------------------- taskbar ---- */
+
+  function syncTaskbar() {
+    taskItems.innerHTML = '';
+    windows.forEach(function (win) {
+      var b = document.createElement('button');
+      b.className = 'task-btn' + (!win.min && win.el.classList.contains('active') ? ' active' : '');
+      b.type = 'button';
+      b.title = win.game.title;
+      b.innerHTML = icon(win.id) + '<span>' + esc(win.game.title) + '</span>';
+      b.addEventListener('click', function () {
+        if (win.min) restore(win);
+        else if (win.el.classList.contains('active')) minimise(win);
+        else focus(win);
+      });
+      b.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+        showCtx(e.clientX, e.clientY, [{ label: 'Close ' + win.game.title, act: function () { closeWin(win); } }]);
+      });
+      taskItems.appendChild(b);
+    });
+    $('#tray-count').textContent = GAMES.length + ' GAMES';
+  }
+
+  function startClock() {
+    var el = $('#tray-clock');
+    function tick() {
+      var d = new Date();
+      el.textContent = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    }
+    tick();
+    setInterval(tick, 15000);
+  }
+
+  /* --------------------------------------------------- menus & shell ---- */
+
+  var ctxEl = $('#ctx');
+  var startEl = $('#start-menu');
+  var startBtn = $('#start-btn');
+  var shellWired = false;
+
+  function closeMenus() {
+    ctxEl.hidden = true;
+    startEl.hidden = true;
+    startBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  function showCtx(x, y, items) {
+    ctxEl.innerHTML = items.map(function (it, i) {
+      return '<button class="menu-item" type="button" data-i="' + i + '">' +
+        (it.glyph ? '<span class="mi-icon">' + it.glyph + '</span>' : '<span class="mi-glyph" style="background:transparent"></span>') +
+        '<span>' + esc(it.label) + '</span></button>';
+    }).join('');
+    ctxEl.hidden = false;
+    startEl.hidden = true;
+    startBtn.setAttribute('aria-expanded', 'false');
+
+    ctxEl.querySelectorAll('.menu-item').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var it = items[+b.dataset.i];
+        closeMenus();
+        if (it && it.act) it.act();
+      });
+    });
+
+    var r = ctxEl.getBoundingClientRect();
+    ctxEl.style.left = Math.min(x, innerWidth - r.width - 4) + 'px';
+    ctxEl.style.top = Math.min(y, innerHeight - r.height - 4) + 'px';
+  }
+
+  function renderStartGames() {
+    var host = $('#start-games');
+    host.innerHTML = '';
+    GAMES.forEach(function (g) {
+      var b = document.createElement('button');
+      b.className = 'menu-item';
+      b.type = 'button';
+      b.innerHTML = '<span class="mi-icon">' + icon(g.id) + '</span><span>' + esc(g.title) + '</span>';
+      b.addEventListener('click', function () { closeMenus(); openGame(g.id); });
+      host.appendChild(b);
+    });
+  }
+
+  function openAbout() {
+    var plays = readJSON(STORE_PLAYS, {});
+    var total = Object.keys(plays).reduce(function (a, k) { return a + plays[k]; }, 0);
+    var tried = Object.keys(plays).length;
+
+    var catList = (function () {
+      var seen = {}, out = [];
+      GAMES.forEach(function (g) { if (!seen[g.category]) { seen[g.category] = 1; out.push(g.category); } });
+      return out.sort().join(', ');
+    })();
+
+    var body =
+      '<h4>WELCOME TO KALAN OS</h4>' +
+      '<p>This is a fake desktop that launches real games. Click an icon on the ' +
+      'left, or press <code>START</code> to browse the full list. Windows drag by ' +
+      'their title bar, resize from the bottom-right grip, and double-click the ' +
+      'title bar to maximise.</p>' +
+      '<div class="stat-row">' +
+      '<div class="stat"><b>' + GAMES.length + '</b><i>installed</i></div>' +
+      '<div class="stat"><b>' + tried + '</b><i>opened</i></div>' +
+      '<div class="stat"><b>' + total + '</b><i>launches</i></div>' +
+      '</div>' +
+      '<h4>GENRES</h4><p>' + esc(catList) + '</p>' +
+      '<h4>ADDING A GAME</h4>' +
+      '<p>Open <code>games.js</code> and add one object to the <code>GAMES</code> ' +
+      'array. The icon is 16 rows of 16 characters, drawn one character per pixel:</p>' +
+      '<ul>' +
+      '<li><code>title</code>, <code>blurb</code>, <code>category</code></li>' +
+      '<li><code>accent</code> &mdash; the hex colour of its title bar</li>' +
+      '<li><code>url</code> &mdash; where the game is hosted</li>' +
+      '<li><code>sprite</code> &mdash; the icon, top row first</li>' +
+      '</ul>' +
+      '<p>That is the whole change. The desktop icon, the Start menu entry and the ' +
+      'taskbar all read from the same array.</p>' +
+      '<h4>NOTES</h4>' +
+      '<ul>' +
+      '<li>Games run in an iframe so the hub stays loaded underneath.</li>' +
+      '<li>Use <code>POP OUT</code> if a game wants a real tab or full screen.</li>' +
+      '<li>Launch counts are stored in your browser only, not on a server.</li>' +
+      '</ul>';
+
+    openCustom('About KALAN OS', '#1d4ed8', body, 'about-body');
+  }
+
+  function openCustom(title, accent, html, bodyClass) {
+    var box = layerBox();
+    var w = Math.min(520, box.w - 40);
+    var h = Math.min(560, box.h - 60);
+    var el = document.createElement('section');
+    el.className = 'win';
+    el.style.setProperty('--accent', accent);
+    el.style.left = Math.max(8, Math.round((box.w - w) / 2)) + 'px';
+    el.style.top = Math.max(8, Math.round((box.h - h) / 2.4)) + 'px';
+    el.style.width = w + 'px';
+    el.style.height = h + 'px';
+    el.innerHTML =
+      '<header class="win-title">' +
+      '<span class="wt-icon"></span>' +
+      '<span class="win-name">' + esc(title) + '</span>' +
+      '<span class="win-btns">' +
+      '<button class="wb max" title="Maximise"></button>' +
+      '<button class="wb close" title="Close"></button>' +
+      '</span></header>' +
+      '<div class="win-body"><div class="' + bodyClass + '">' + html + '</div></div>' +
+      '<div class="win-grip"></div>';
+    layer.appendChild(el);
+
+    var win = { id: '__' + title, game: { title: title, accent: accent }, el: el, min: false, max: false, restore: null };
+    windows.push(win);
+    $('.wb.close', el).addEventListener('click', function (e) { e.stopPropagation(); closeWin(win); });
+    $('.wb.max', el).addEventListener('click', function (e) { e.stopPropagation(); toggleMax(win); });
+    el.addEventListener('pointerdown', function () { focus(win); }, true);
+    $('.win-title', el).addEventListener('dblclick', function (e) {
+      if (e.target.closest('.wb')) return;
+      toggleMax(win);
+    });
+    makeDraggable(win);
+    makeResizable(win);
+    focus(win);
+    syncTaskbar();
+  }
+
+  function cascadeWindows() {
+    cascade = 0;
+    windows.forEach(function (win, i) {
+      if (win.max) toggleMax(win);
+      if (win.min) restore(win);
+      var box = layerBox();
+      var w = Math.min(880, Math.max(320, box.w - 60));
+      var h = Math.min(600, Math.max(260, box.h - 60));
+      var off = i * 26;
+      win.el.style.left = Math.min(Math.max(4, 30 + off), Math.max(4, box.w - w - 4)) + 'px';
+      win.el.style.top = Math.min(Math.max(4, 20 + off), Math.max(4, box.h - h - 4)) + 'px';
+      win.el.style.width = w + 'px';
+      win.el.style.height = h + 'px';
+    });
+  }
+
+  function tileWindows() {
+    var open = windows.filter(function (w) { return !w.min; });
+    if (!open.length) return;
+    var box = layerBox();
+
+    /* Read the floor from CSS rather than hardcoding it, because the mobile
+       breakpoint drops min-width/min-height to 0. Ignoring it is what pushes
+       tiled windows off the right edge on narrower screens. */
+    var probe = getComputedStyle(open[0].el);
+    var minW = parseFloat(probe.minWidth) || 0;
+    var minH = parseFloat(probe.minHeight) || 0;
+
+    var cols = Math.ceil(Math.sqrt(open.length));
+    if (minW > 0) cols = Math.min(cols, Math.max(1, Math.floor(box.w / minW)));
+    var rows = Math.ceil(open.length / cols);
+
+    open.forEach(function (win, i) {
+      if (win.max) toggleMax(win);
+      var cw = Math.floor(box.w / cols);
+      var ch = Math.floor(box.h / rows);
+      win.el.style.left = ((i % cols) * cw) + 'px';
+      win.el.style.top = (Math.floor(i / cols) * ch) + 'px';
+      win.el.style.width = Math.max(minW, cw) + 'px';
+      win.el.style.height = Math.max(minH, ch) + 'px';
+    });
+    focus(open[0]);
+  }
+
+  function wireShell() {
+    if (shellWired) return;
+    shellWired = true;
+
+    startBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var opening = startEl.hidden;
+      closeMenus();
+      if (opening) { startEl.hidden = false; startBtn.setAttribute('aria-expanded', 'true'); }
+    });
+
+    startEl.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-cmd]');
+      if (!b) return;
+      var cmd = b.dataset.cmd;
+      closeMenus();
+      if (cmd === 'about') openAbout();
+      else if (cmd === 'closeall') closeAll();
+      else if (cmd === 'reboot') location.reload();
+    });
+
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('#start-menu') || e.target.closest('#start-btn') || e.target.closest('#ctx')) return;
+      if (!e.target.closest('#ctx')) closeMenus();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeMenus();
+    });
+
+    var desk = $('#desktop');
+    desk.addEventListener('contextmenu', function (e) {
+      if (e.target.closest('.win') || e.target.closest('.dicon')) return;
+      e.preventDefault();
+      showCtx(e.clientX, e.clientY, [
+        { label: 'Cascade windows', act: cascadeWindows },
+        { label: 'Tile windows', act: tileWindows },
+        { label: 'Minimise all', act: function () { windows.filter(function (w) { return !w.min; }).forEach(minimise); } },
+        { label: 'Close all windows', act: closeAll },
+        { label: 'About KALAN OS', act: openAbout },
+        { label: 'Reboot', act: function () { location.reload(); } }
+      ]);
+    });
+
+    /* desktop icon keyboard nav */
+    iconsEl.addEventListener('keydown', function (e) {
+      var i = iconBtns.indexOf(document.activeElement);
+      if (i < 0) return;
+      var cols = 6;
+      var next = null;
+      if (e.key === 'ArrowDown') next = i + cols;
+      else if (e.key === 'ArrowUp') next = i - cols;
+      else if (e.key === 'ArrowRight') next = i + 1;
+      else if (e.key === 'ArrowLeft') next = i - 1;
+      if (next === null) return;
+      e.preventDefault();
+      if (iconBtns[next]) iconBtns[next].focus();
+    });
+
+    window.addEventListener('resize', function () {
+      var box = layerBox();
+      windows.forEach(function (win) {
+        if (!win.max) return;
+        win.el.style.width = box.w + 'px';
+        win.el.style.height = box.h + 'px';
+      });
+    });
+  }
+
+  /* -------------------------------------------------------- confetti ---- */
+
+  function confetti(el, colour) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var r = el.getBoundingClientRect();
+    var cx = r.left + r.width / 2;
+    var cy = r.top + r.height / 2;
+    var palette = [colour, '#f2f2f7', '#facc15', '#4ade80', '#22d3ee'];
+
+    for (var i = 0; i < 16; i++) {
+      var c = document.createElement('i');
+      c.className = 'confetti';
+      c.style.left = cx + 'px';
+      c.style.top = cy + 'px';
+      c.style.background = palette[i % palette.length];
+      c.style.setProperty('--dx', (Math.random() * 260 - 130) + 'px');
+      c.style.setProperty('--dy', (Math.random() * 220 - 110) + 'px');
+      document.body.appendChild(c);
+      (function (node) { setTimeout(function () { node.remove(); }, 950); })(c);
+    }
+  }
+
+  /* ------------------------------------------------------------- go ---- */
+
+  /* Small scripting hook, handy from the console and used by the test harness:
+     KALAN.open('neon-fall')  KALAN.openAll()  KALAN.tile()  KALAN.reset()  */
+  window.KALAN = {
+    games: GAMES,
+    open: openGame,
+    openAll: function () { GAMES.forEach(function (g) { openGame(g.id); }); },
+    openAbout: openAbout,
+    close: closeWin,
+    closeAll: closeAll,
+    cascade: cascadeWindows,
+    tile: tileWindows,
+    minAll: function () { windows.filter(function (w) { return !w.min; }).forEach(minimise); },
+    focus: function (id) {
+      var w = windows.filter(function (x) { return x.id === id; })[0];
+      if (w) focus(w);
+    },
+    snapshot: function () {
+      return windows.map(function (w) {
+        var f = $('.win-frame', w.el);
+        var ifr = f.querySelector('iframe');
+        return {
+          id: w.id,
+          min: w.min,
+          max: w.max,
+          active: w.el.classList.contains('active'),
+          loading: f.classList.contains('loading'),
+          src: ifr ? ifr.getAttribute('src') : null,
+          taskBtn: !!(taskItems.querySelector('.task-btn')),
+        };
+      });
+    },
+    reset: function () {
+      try {
+        localStorage.removeItem(STORE_PLAYS);
+        localStorage.removeItem(STORE_ORDER);
+      } catch (e) { /* ignore */ }
+      location.reload();
+    },
+  };
+
+  runBoot();
+})();
+
+  </script>
+</body>
+
+</html>
