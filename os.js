@@ -53,6 +53,7 @@
 
   var STORE_PLAYS = 'kalanos.plays';
   var STORE_POS = 'kalanos.positions';
+  var STORE_WINS = 'kalanos.windows';
 
   function readJSON(key, fallback) {
     try {
@@ -382,8 +383,12 @@
     }
 
     var box = layerBox();
-    var w = Math.min(880, Math.max(320, box.w - 60));
-    var h = Math.min(600, Math.max(260, box.h - 60));
+    /* Never open wider or taller than the desktop, or on a phone the window
+       is born partly off-screen with no room to drag it back. */
+    var small = box.w < 560;
+    var pad = small ? 8 : 60;
+    var w = Math.min(box.w - 8, Math.max(small ? 240 : 320, box.w - pad));
+    var h = Math.min(box.h - 8, Math.max(small ? 220 : 260, box.h - pad));
     var step = 26;
     var off = (cascade % 6) * step;
     cascade++;
@@ -392,6 +397,14 @@
     var y = Math.max(4, Math.round((box.h - h) / 2) - 60 + off);
     x = Math.min(x, Math.max(4, box.w - w - 4));
     y = Math.min(y, Math.max(4, box.h - h - 4));
+
+    var saved = readJSON(STORE_WINS, {})[id];
+    if (saved && saved.w > 0 && saved.h > 0) {
+      w = Math.min(saved.w, box.w);
+      h = Math.min(saved.h, box.h);
+      x = Math.min(Math.max(saved.x, -w + 90), Math.max(0, box.w - 60));
+      y = Math.min(Math.max(saved.y, 0), Math.max(0, box.h - 26));
+    }
 
     var el = document.createElement('section');
     el.className = 'win';
@@ -425,7 +438,7 @@
       'referrerpolicy="strict-origin-when-cross-origin" loading="eager"></iframe>' +
       '</div>' +
       '</div>' +
-      '<div class="win-grip" title="Resize"></div>';
+      gripsHtml();
 
     layer.appendChild(el);
 
@@ -540,12 +553,16 @@
     var el = win.el;
     if (win.max) {
       var r = win.restore;
-      el.style.left = r.left;
-      el.style.top = r.top;
-      el.style.width = r.width;
-      el.style.height = r.height;
       el.classList.remove('max');
       win.max = false;
+      applyGeom(el, {
+        x: parseFloat(r.left) || 0,
+        y: parseFloat(r.top) || 0,
+        w: parseFloat(r.width) || 0,
+        h: parseFloat(r.height) || 0
+      });
+      /* the desktop may have been resized while maximised */
+      fitWinToLayer(win);
     } else {
       win.restore = {
         left: el.style.left, top: el.style.top,
@@ -563,6 +580,71 @@
   }
 
   /* ------------------------------------------------------ drag/resize ---- */
+
+  var GRIP_DIRS = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
+  var GRIP_CURSOR = {
+    n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize',
+    ne: 'nesw-resize', nw: 'nesw-resize', se: 'nwse-resize', sw: 'nesw-resize'
+  };
+
+  function gripsHtml() {
+    return GRIP_DIRS.map(function (d) {
+      return '<div class="win-grip" data-dir="' + d + '" title="Resize"></div>';
+    }).join('');
+  }
+
+  function applyGeom(el, g) {
+    el.style.left = g.x + 'px';
+    el.style.top = g.y + 'px';
+    el.style.width = g.w + 'px';
+    el.style.height = g.h + 'px';
+  }
+
+  function saveWinGeom(win) {
+    /* Maximised is a transient state, and the notice windows have synthetic
+       ids, so neither is worth remembering. */
+    if (win.max || win.id.charAt(0) === '_') return;
+    var map = readJSON(STORE_WINS, {});
+    map[win.id] = {
+      x: parseFloat(win.el.style.left) || 0,
+      y: parseFloat(win.el.style.top) || 0,
+      w: win.el.offsetWidth,
+      h: win.el.offsetHeight
+    };
+    writeJSON(STORE_WINS, map);
+  }
+
+  /* A window wider than the desktop, or parked past its edge, cannot be
+     dragged back into view once the browser shrinks. Pull it inside and keep
+     the title bar reachable. */
+  function fitWinToLayer(win) {
+    var box = layerBox();
+    var el = win.el;
+    if (win.max) {
+      el.style.width = box.w + 'px';
+      el.style.height = box.h + 'px';
+      return;
+    }
+    var cs = getComputedStyle(el);
+    var minW = parseFloat(cs.minWidth);
+    var minH = parseFloat(cs.minHeight);
+    minW = minW > 0 ? minW : 160;
+    minH = minH > 0 ? minH : 120;
+
+    var w = Math.min(el.offsetWidth, box.w);
+    var h = Math.min(el.offsetHeight, box.h);
+    w = Math.max(w, Math.min(minW, box.w));
+    h = Math.max(h, Math.min(minH, box.h));
+    var x = parseFloat(el.style.left) || 0;
+    var y = parseFloat(el.style.top) || 0;
+    x = Math.min(Math.max(x, -w + 90), Math.max(0, box.w - 60));
+    y = Math.min(Math.max(y, 0), Math.max(0, box.h - 26));
+    w = snap(w); h = snap(h);
+    /* Snap can round up past the desktop, so re-check afterwards. */
+    if (w > box.w) w = box.w;
+    if (h > box.h) h = box.h;
+    applyGeom(el, { x: snap(x), y: snap(y), w: w, h: h });
+  }
 
   function makeDraggable(win) {
     var bar = $('.win-title', win.el);
@@ -586,8 +668,8 @@
       var ny = origY + (e.clientY - startY);
       nx = Math.min(Math.max(nx, -win.el.offsetWidth + 90), box.w - 60);
       ny = Math.min(Math.max(ny, 0), box.h - 26);
-      win.el.style.left = nx + 'px';
-      win.el.style.top = ny + 'px';
+      win.el.style.left = snap(nx) + 'px';
+      win.el.style.top = snap(ny) + 'px';
     });
 
     function end(e) {
@@ -595,38 +677,109 @@
       active = false;
       win.el.classList.remove('dragging');
       try { bar.releasePointerCapture(e.pointerId); } catch (err) { /* already gone */ }
+      saveWinGeom(win);
     }
     bar.addEventListener('pointerup', end);
     bar.addEventListener('pointercancel', end);
   }
 
   function makeResizable(win) {
-    var grip = $('.win-grip', win.el);
-    var sx = 0, sy = 0, ow = 0, oh = 0, active = false;
+    var el = win.el;
+    var grips = [].slice.call(el.querySelectorAll('.win-grip'));
+    var st = null, dir = '', handle = null;
 
-    grip.addEventListener('pointerdown', function (e) {
-      if (e.button !== 0) return;
-      active = true;
-      sx = e.clientX; sy = e.clientY;
-      ow = win.el.offsetWidth; oh = win.el.offsetHeight;
-      grip.setPointerCapture(e.pointerId);
-      e.preventDefault();
-      e.stopPropagation();
-    });
-
-    grip.addEventListener('pointermove', function (e) {
-      if (!active) return;
-      win.el.style.width = Math.max(260, ow + (e.clientX - sx)) + 'px';
-      win.el.style.height = Math.max(180, oh + (e.clientY - sy)) + 'px';
-    });
-
-    function end(e) {
-      if (!active) return;
-      active = false;
-      try { grip.releasePointerCapture(e.pointerId); } catch (err) { /* already gone */ }
+    /* Read the floor from CSS so the small-screen media query is honoured
+       instead of being duplicated as a second number that can drift. */
+    function mins() {
+      var cs = getComputedStyle(el);
+      var mw = parseFloat(cs.minWidth);
+      var mh = parseFloat(cs.minHeight);
+      return { w: mw > 0 ? mw : 160, h: mh > 0 ? mh : 120 };
     }
-    grip.addEventListener('pointerup', end);
-    grip.addEventListener('pointercancel', end);
+
+    /* Dragging an edge of a maximised window drops back to a usable size with
+       the grabbed edge pinned, which is the only way off maximised without a
+       pointer precise enough to hit the restore button. */
+    function unmaxFor(d) {
+      var box = layerBox();
+      var m = mins();
+      var w = Math.max(m.w, Math.min(880, box.w - 60));
+      var h = Math.max(m.h, Math.min(600, box.h - 60));
+      var x = d.indexOf('w') > -1 ? 0 : box.w - w;
+      var y = d.indexOf('n') > -1 ? 0 : box.h - h;
+      el.classList.remove('max');
+      win.max = false;
+      applyGeom(el, { x: snap(x), y: snap(y), w: snap(w), h: snap(h) });
+      return { l: parseFloat(el.style.left), t: parseFloat(el.style.top), w: w, h: h };
+    }
+
+    grips.forEach(function (grip) {
+      var d = grip.dataset.dir || 'se';
+
+      grip.addEventListener('pointerdown', function (e) {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        focus(win);
+        dir = d;
+        handle = grip;
+        var base = win.max ? unmaxFor(d) : {
+          l: el.offsetLeft, t: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight
+        };
+        st = { x: e.clientX, y: e.clientY, l: base.l, t: base.t, w: base.w, h: base.h };
+        el.classList.add('resizing');
+        el.style.cursor = GRIP_CURSOR[d] || 'nwse-resize';
+        try { grip.setPointerCapture(e.pointerId); } catch (err) { /* not supported */ }
+      });
+
+      grip.addEventListener('pointermove', function (e) {
+        if (!st) return;
+        e.preventDefault();
+        var box = layerBox();
+        var m = mins();
+        var dx = e.clientX - st.x;
+        var dy = e.clientY - st.y;
+        var east = dir.indexOf('e') > -1;
+        var west = dir.indexOf('w') > -1;
+        var south = dir.indexOf('s') > -1;
+        var north = dir.indexOf('n') > -1;
+
+        var w = east ? st.w + dx : west ? st.w - dx : st.w;
+        var h = south ? st.h + dy : north ? st.h - dy : st.h;
+
+        /* Clamp the size before working out the position. Doing it the other
+           way round lets the desktop ceiling drag the anchored edge sideways
+           when a window is already as wide as the desktop. */
+        w = Math.min(Math.max(w, m.w), box.w);
+        h = Math.min(Math.max(h, m.h), box.h);
+
+        /* The edges opposite the grip stay put, and the window stops dead at
+           the minimum rather than squashing. */
+        var x = west ? st.l + st.w - w : st.l;
+        var y = north ? st.t + st.h - h : st.t;
+
+        x = snap(x); y = snap(y); w = snap(w); h = snap(h);
+        /* Snap first, then re-check: rounding up can otherwise leave the
+           window a pixel wider than the desktop. */
+        if (w > box.w) w = box.w;
+        if (h > box.h) h = box.h;
+        x = Math.min(Math.max(x, -w + 90), Math.max(0, box.w - 60));
+        y = Math.min(Math.max(y, 0), Math.max(0, box.h - 26));
+        applyGeom(el, { x: x, y: y, w: w, h: h });
+      });
+
+      function end(e) {
+        if (!st) return;
+        st = null;
+        el.classList.remove('resizing');
+        el.style.cursor = '';
+        try { handle.releasePointerCapture(e.pointerId); } catch (err) { /* already gone */ }
+        handle = null;
+        saveWinGeom(win);
+      }
+      grip.addEventListener('pointerup', end);
+      grip.addEventListener('pointercancel', end);
+    });
   }
 
   /* --------------------------------------------------------- taskbar ---- */
@@ -714,9 +867,9 @@
       '<h4>WELCOME TO KALAN OS</h4>' +
       '<p>This is a fake desktop that launches real games. Click an icon to ' +
       'open it, or drag an icon anywhere you like -- the layout is saved. ' +
-      'Windows drag by ' +
-      'their title bar, resize from the bottom-right grip, and double-click the ' +
-      'title bar to maximise.</p>' +
+      'Windows drag by their title bar, resize from any edge or corner, and ' +
+      'double-click the title bar to maximise. Window sizes are remembered ' +
+      'too.</p>' +
       '<div class="stat-row">' +
       '<div class="stat"><b>' + GAMES.length + '</b><i>installed</i></div>' +
       '<div class="stat"><b>' + tried + '</b><i>opened</i></div>' +
@@ -764,7 +917,7 @@
       '<button class="wb close" title="Close"></button>' +
       '</span></header>' +
       '<div class="win-body"><div class="' + bodyClass + '">' + html + '</div></div>' +
-      '<div class="win-grip"></div>';
+      gripsHtml();
     layer.appendChild(el);
 
     var win = { id: '__' + title, game: { title: title, accent: accent }, el: el, min: false, max: false, restore: null };
@@ -888,12 +1041,9 @@
     });
 
     window.addEventListener('resize', function () {
-      var box = layerBox();
-      windows.forEach(function (win) {
-        if (!win.max) return;
-        win.el.style.width = box.w + 'px';
-        win.el.style.height = box.h + 'px';
-      });
+      /* every window, not just the maximised ones: an ordinary window left
+         half off-screen by a shrinking browser is otherwise unreachable */
+      windows.forEach(function (win) { fitWinToLayer(win); });
       /* a smaller window can strand a dragged icon outside the icon area */
       iconBtns.forEach(function (el) {
         if (!el.classList.contains('placed')) return;

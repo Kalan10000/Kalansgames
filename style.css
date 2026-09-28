@@ -655,20 +655,98 @@ body {
   background: #fff;
 }
 
+/* Eight handles, so a window can be grown from any side. The four corners
+   keep the original hatched grip; the edges are thin strips. */
 .win-grip {
   position: absolute;
+  z-index: 3;
+  touch-action: none;
+}
+
+.win-grip[data-dir="se"],
+.win-grip[data-dir="ne"] {
   right: 0;
-  bottom: 0;
   width: 16px;
   height: 16px;
-  cursor: nwse-resize;
-  z-index: 3;
   background: repeating-linear-gradient(135deg,
       transparent 0 3px, rgba(13, 13, 22, 0.55) 3px 5px);
 }
 
+.win-grip[data-dir="se"],
+.win-grip[data-dir="sw"] {
+  bottom: 0;
+  height: 16px;
+}
+
+.win-grip[data-dir="ne"] {
+  top: 0;
+  cursor: nesw-resize;
+}
+
+.win-grip[data-dir="se"] {
+  cursor: nwse-resize;
+}
+
+.win-grip[data-dir="nw"],
+.win-grip[data-dir="sw"] {
+  left: 0;
+  width: 16px;
+  height: 16px;
+  background: repeating-linear-gradient(45deg,
+      transparent 0 3px, rgba(13, 13, 22, 0.55) 3px 5px);
+}
+
+.win-grip[data-dir="nw"] {
+  top: 0;
+  cursor: nwse-resize;
+}
+
+.win-grip[data-dir="sw"] {
+  bottom: 0;
+  cursor: nesw-resize;
+}
+
+.win-grip[data-dir="n"],
+.win-grip[data-dir="s"] {
+  left: 16px;
+  right: 16px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.win-grip[data-dir="n"] {
+  top: 0;
+}
+
+.win-grip[data-dir="s"] {
+  bottom: 0;
+}
+
+.win-grip[data-dir="w"],
+.win-grip[data-dir="e"] {
+  top: 16px;
+  bottom: 16px;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.win-grip[data-dir="w"] {
+  left: 0;
+}
+
+.win-grip[data-dir="e"] {
+  right: 0;
+}
+
+/* Maximised windows keep their handles so an edge drag can restore them, but
+   drop the hatching so a full-bleed window is not framed. */
 .win.max .win-grip {
-  display: none;
+  background: none;
+}
+
+.win.resizing,
+.win.resizing * {
+  user-select: none;
 }
 
 /* ===================== TASKBAR ===================== */
@@ -1048,9 +1126,31 @@ body {
     max-width: 96px;
   }
 
-  .wb.max,
-  .win-grip {
-    display: none;
+  .wb.max {
+    display: block;
+  }
+
+  /* Fingers need a wider target than a mouse does. */
+  .win-grip[data-dir="n"],
+  .win-grip[data-dir="s"] {
+    left: 20px;
+    right: 20px;
+    height: 12px;
+  }
+
+  .win-grip[data-dir="w"],
+  .win-grip[data-dir="e"] {
+    top: 20px;
+    bottom: 20px;
+    width: 12px;
+  }
+
+  .win-grip[data-dir="se"],
+  .win-grip[data-dir="ne"],
+  .win-grip[data-dir="nw"],
+  .win-grip[data-dir="sw"] {
+    width: 22px;
+    height: 22px;
   }
 }
 
