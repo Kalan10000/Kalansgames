@@ -1131,11 +1131,14 @@ body {
   margin-top: 4px;
 }
 
-/* ===================== EASTER EGG: ARCADE PORTAL ===================== */
-/* Deliberately breaks the "no blur" rule of the rest of this sheet: it is a
-   neon arcade sign, and neon without a bloom does not read as neon. Every
-   transition is still steps(), so nothing eases -- the softness is the glow,
-   never the motion. */
+/* ===================== EASTER EGG: THE CABINET ===================== */
+/* The desktop is not a screen in a browser here, it is the tube of the arcade
+   cabinet standing in the back of the room. Clicking KALAN leaves the way a
+   CRT leaves: the picture collapses to a line, the line flares and dies, and
+   only then does the cabinet's own marquee light up out of the dark.
+   Palette is lifted straight from romandarcade.html -- 0a0502 room, ffaa00
+   amber, ff4400 fire, the wood browns, and a 12002 screen. No blur except
+   where a filament is genuinely glowing. */
 
 .portal {
   position: fixed;
@@ -1144,271 +1147,278 @@ body {
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: #05050a;
+  background: transparent;
   cursor: progress;
   user-select: none;
-  clip-path: inset(0 50% 0 50%);
 }
 
-/* The shell is wiped away by the portal opening out from the centre line, so
-   the desktop appears to be cut open rather than covered. */
-.portal.open {
-  animation: portal-wipe 380ms steps(10) forwards;
+/* The room behind the cabinet. Transparent at first so the desktop still
+   reads as lit glass, then it thickens to opaque as the tube dies. */
+.portal-room {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background:
+    /* the point light hung at 0,3.2,0 in the room snippet */
+    radial-gradient(120% 78% at 50% 6%, rgba(255, 170, 68, 0.30) 0%, rgba(255, 140, 32, 0.10) 36%, transparent 70%),
+    /* wood floor catching that light */
+    linear-gradient(180deg, transparent 62%, rgba(46, 20, 6, 0.55) 78%, rgba(27, 10, 2, 0.92) 100%),
+    #0a0502;
 }
 
-@keyframes portal-wipe {
-  to {
-    clip-path: inset(0 0 0 0);
-  }
-}
-
-/* CRT tube border. Cool cyan while the name decodes, hot magenta on the surge. */
-.portal::before {
+/* Grain across the floor, so the lower half is not a flat wash. */
+.portal-room::after {
   content: '';
   position: absolute;
   inset: 0;
-  pointer-events: none;
-  box-shadow: inset 0 0 0 2px #22d3ee, inset 0 0 40px 0 rgba(34, 211, 238, 0.3);
-  opacity: 0;
+  background: repeating-linear-gradient(90deg, rgba(12, 5, 1, 0.45) 0 2%, transparent 2% 5%);
+  opacity: 0.5;
 }
 
-.portal.open::before {
-  animation: portal-frame 700ms steps(5) forwards;
+.portal.dark .portal-room {
+  animation: room-in 340ms steps(8) forwards;
 }
 
-@keyframes portal-frame {
-  from {
-    opacity: 0;
-  }
-
+@keyframes room-in {
   to {
     opacity: 1;
   }
 }
 
-.portal.surge::before {
-  box-shadow: inset 0 0 0 2px #e879f9, inset 0 0 70px 0 rgba(232, 121, 249, 0.45);
-  animation: portal-frame-hot 620ms steps(4);
-}
+/* ------------------------------------------------------------- the tube -- */
+/* Starts as the lit screen you are already looking at, then collapses. */
 
-@keyframes portal-frame-hot {
-  0% {
-    box-shadow: inset 0 0 0 2px #22d3ee, inset 0 0 40px 0 rgba(34, 211, 238, 0.3);
-  }
-
-  50% {
-    box-shadow: inset 0 0 0 2px #fff, inset 0 0 90px 0 rgba(255, 255, 255, 0.5);
-  }
-
-  100% {
-    box-shadow: inset 0 0 0 2px #e879f9, inset 0 0 70px 0 rgba(232, 121, 249, 0.45);
-  }
-}
-
-/* Three copies of the same word stacked in one grid cell: the cyan and magenta
-   ghosts are the two halves of a chromatic split while it decodes, and they
-   merge back into a single clean glyph once ARCADE locks. */
-.portal-stack {
+.portal-tube {
   position: relative;
-  display: grid;
-  place-items: center;
+  width: min(72vmin, 600px);
+  height: min(54vmin, 450px);
+  background: #120a02;
+  box-shadow:
+    0 0 0 3px #1a1208,
+    0 0 34px rgba(255, 170, 0, 0.45),
+    inset 0 0 60px rgba(255, 120, 0, 0.22);
+  overflow: hidden;
+  transform-origin: 50% 50%;
 }
 
-.portal-word,
-.portal-ghost {
-  grid-area: 1 / 1;
-  font-family: 'Press Start 2P', monospace;
-  font-size: clamp(24px, 10vw, 112px);
-  line-height: 1.15;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
+.portal.tube-off .portal-tube {
+  animation: tube-collapse 360ms steps(12) forwards;
 }
 
-.portal-word {
-  color: #e9e9f6;
-  text-shadow: 0 0 2px #fff, 0 0 12px #22d3ee, 0 0 30px #22d3ee;
+/* Squeeze to nothing vertically, brighten as it goes, then flare out to
+   slightly wider than the tube. That last overshoot is the phosphor. */
+@keyframes tube-collapse {
+  0% {
+    transform: scaleY(1) scaleX(1);
+    filter: brightness(1);
+  }
+  70% {
+    transform: scaleY(0.02) scaleX(1);
+    filter: brightness(2.4);
+  }
+  100% {
+    transform: scaleY(0.004) scaleX(1.06);
+    filter: brightness(3.4);
+  }
 }
 
-.portal-ghost {
-  mix-blend-mode: screen;
+/* The line that is left over once the picture is gone. */
+.portal-line {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(72vmin, 600px);
+  height: 3px;
+  margin: -1.5px 0 0;
+  background: #fff6d8;
+  box-shadow:
+    0 0 10px 2px rgba(255, 255, 255, 0.9),
+    0 0 46px 12px rgba(255, 170, 0, 0.75);
+  opacity: 0;
+  transform: scaleX(0.2);
+}
+
+.portal.tube-off .portal-line {
+  animation: line-in 200ms steps(6) 160ms forwards;
+}
+
+@keyframes line-in {
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+/* Flare, hold, die. */
+.portal.tube-dead .portal-line {
+  animation: line-die 220ms steps(7) forwards;
+}
+
+@keyframes line-die {
+  0% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  35% {
+    opacity: 1;
+    transform: scaleX(1.18);
+    box-shadow:
+      0 0 14px 3px rgba(255, 255, 255, 1),
+      0 0 70px 22px rgba(255, 200, 80, 0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(0.1);
+  }
+}
+
+.portal.tube-dead .portal-tube {
   opacity: 0;
 }
 
-.portal-ghost-c {
-  --sx: -12px;
-  --sy: 4px;
-  color: #22d3ee;
+/* --------------------------------------------------------- the marquee -- */
+/* KALAN'S GAMES, on the same amber plate as the cabinet in the room. */
+
+.portal-sign {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  opacity: 0;
+  transform: translateY(6px);
 }
 
-.portal-ghost-m {
-  --sx: 12px;
-  --sy: -4px;
-  color: #e879f9;
+.portal.sign-on .portal-sign {
+  animation: sign-in 300ms steps(6) forwards;
 }
 
-.portal.open:not(.locked) .portal-ghost {
-  opacity: 0.8;
-  animation: portal-split 240ms steps(3) infinite;
-}
-
-/* One keyframe set drives both halves, mirrored by --sx, so they can never
-   drift out of step with each other. */
-@keyframes portal-split {
-  0%,
+@keyframes sign-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  /* the starter flickers, the way a tube that is only just alight does */
+  62% {
+    opacity: 0.25;
+  }
   100% {
-    transform: translate(var(--sx), var(--sy));
-  }
-
-  50% {
-    transform: translate(calc(var(--sx) * 0.35), calc(var(--sy) * -1));
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-/* The two halves snap back to centre, which is what sells the "resolved" beat. */
-.portal.locked .portal-ghost {
-  animation: portal-merge 320ms steps(4) forwards;
+.portal-marquee {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 34px;
+  border: 5px solid #221100;
+  background: linear-gradient(180deg, #ffe0a0, #ffaa00 50%, #cc6600);
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(14px, 2.6vmin, 24px);
+  line-height: 1.5;
+  text-align: center;
+  color: #110500;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0 0 30px rgba(255, 170, 0, 0.5),
+    0 0 80px rgba(255, 120, 0, 0.28);
 }
 
-@keyframes portal-merge {
-  to {
+.portal-marquee .pm-2 {
+  color: #fff;
+}
+
+.portal-coin {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(9px, 1.5vmin, 13px);
+  letter-spacing: 1px;
+  color: #ffaa00;
+  text-shadow: 0 0 12px rgba(255, 170, 0, 0.8);
+  animation: coin-blink 700ms steps(1) infinite;
+}
+
+@keyframes coin-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ------------------------------------------------------------- the cut -- */
+/* The sign browns out and jitters once, the way a cabinet drops out when the
+   coin is taken. Then the tab is handed over. */
+.portal.cut .portal-sign {
+  animation: sign-cut 240ms steps(5) forwards;
+}
+
+@keyframes sign-cut {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0);
+    filter: none;
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-4px, 1px);
+    filter: saturate(0.2) brightness(1.4);
+  }
+  60% {
+    opacity: 0.5;
+    transform: translate(3px, -1px);
+  }
+  100% {
     opacity: 0;
     transform: translate(0, 0);
   }
 }
 
-/* One long stutter that lands on a steady, wide, fully-on neon. */
-.portal.locked .portal-word {
-  animation: portal-neon 820ms steps(1) forwards;
+.portal.cut .portal-room {
+  animation: room-out 240ms steps(6) forwards;
 }
 
-@keyframes portal-neon {
-  0% {
-    color: #fff;
-    text-shadow: 0 0 2px #fff, 0 0 10px #22d3ee, 0 0 26px #22d3ee;
-  }
-
-  18% {
-    color: #22d3ee;
-    text-shadow: 0 0 2px #fff, 0 0 14px #c084fc, 0 0 34px #c084fc, 0 0 70px #e879f9;
-  }
-
-  34% {
-    color: #e9e9f6;
-    text-shadow: 0 0 2px #fff, 0 0 6px #22d3ee, 0 0 14px #22d3ee;
-  }
-
-  52% {
-    color: #fff;
-    text-shadow: 0 0 2px #fff, 0 0 20px #22d3ee, 0 0 48px #e879f9, 0 0 90px #22d3ee;
-  }
-
-  68% {
-    color: #facc15;
-    text-shadow: 0 0 2px #fff, 0 0 10px #facc15, 0 0 24px #facc15;
-  }
-
-  86% {
-    color: #fff;
-    text-shadow: 0 0 2px #fff, 0 0 16px #22d3ee, 0 0 40px #c084fc, 0 0 80px #c084fc;
-  }
-
-  100% {
-    color: #fff;
-    text-shadow: 0 0 3px #fff, 0 0 18px #22d3ee, 0 0 46px #22d3ee, 0 0 96px #c084fc;
+@keyframes room-out {
+  to {
+    opacity: 0.85;
   }
 }
 
-.portal-sub {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 13%;
-  margin: 0;
-  min-height: 1.5em;
-  text-align: center;
-  font-family: 'Press Start 2P', monospace;
-  font-size: clamp(10px, 2.4vw, 21px);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #4ade80;
-  text-shadow: 0 0 8px #4ade80, 0 0 22px #15803d;
-}
+/* ------------------------------------------------------------ scanlines -- */
+/* Over everything once the tube is lit, so the whole thing reads as glass. */
 
-/* A CRT refresh bar sweeping top to bottom just before the hand-off. */
 .portal-scan {
   position: absolute;
-  left: 0;
-  right: 0;
-  height: 26%;
-  pointer-events: none;
-  opacity: 0;
-  background: linear-gradient(180deg,
-      transparent 0%,
-      rgba(34, 211, 238, 0.10) 32%,
-      rgba(232, 121, 249, 0.36) 50%,
-      rgba(34, 211, 238, 0.10) 68%,
-      transparent 100%);
-  box-shadow: 0 0 24px 2px rgba(34, 211, 238, 0.45);
-}
-
-.portal.surge .portal-scan {
-  animation: portal-scan 700ms steps(16) forwards;
-}
-
-@keyframes portal-scan {
-  from {
-    top: -30%;
-    opacity: 1;
-  }
-
-  to {
-    top: 108%;
-    opacity: 0;
-  }
-}
-
-/* Hand-off. Everything blows out to white and the portal closes back down to a
-   single scanline, the way a CRT loses signal. */
-.portal.blast::after {
-  content: '';
-  position: absolute;
   inset: 0;
-  background: #fff;
   pointer-events: none;
-  animation: portal-flash 220ms steps(8) forwards;
+  opacity: 0;
+  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.42) 0 2px, transparent 2px 4px);
 }
 
-@keyframes portal-flash {
-  from {
+.portal.dark .portal-scan {
+  animation: scan-in 300ms steps(5) forwards;
+}
+
+@keyframes scan-in {
+  to {
     opacity: 1;
   }
+}
 
-  to {
-    opacity: 0;
+@media (prefers-reduced-motion: reduce) {
+  .portal-coin {
+    animation: none;
   }
 }
-
-.portal.blast {
-  animation: portal-collapse 520ms steps(16) forwards;
-}
-
-@keyframes portal-collapse {
-  from {
-    clip-path: inset(0 0 0 0);
-  }
-
-  to {
-    clip-path: inset(50% 0 50% 0);
-  }
-}
-
-.portal.blast .portal-word,
-.portal.blast .portal-sub,
-.portal.blast .portal-ghost {
-  animation: none;
-  opacity: 0;
-}
-
 /* ===================== CONFETTI ===================== */
 .confetti {
   position: fixed;

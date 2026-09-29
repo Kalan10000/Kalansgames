@@ -1029,9 +1029,7 @@
   var startEl = $('#start-menu');
   var startBtn = $('#start-btn');
   var portalEl = $('#portal');
-  var portalWord = $('#portal-word');
-  var portalSub = $('#portal-sub');
-  var portalGhosts = portalEl.querySelectorAll('.portal-ghost');
+  var portalCoin = $('#portal-coin');
   var shellWired = false;
 
   function closeMenus() {
@@ -1222,6 +1220,9 @@
       var b = e.target.closest('[data-cmd]');
       if (!b) return;
       var cmd = b.dataset.cmd;
+      /* Close the shell BEFORE dispatching. The arcade hand-off animates on
+         top of the desktop, so it needs the menu already out of the way --
+         but the old order left the Start menu visible for the first frame. */
       closeMenus();
       if (cmd === 'about') openAbout();
       else if (cmd === 'closeall') closeAll();
@@ -1322,63 +1323,20 @@
   }
 
   /* ----------------------------------------------------------- easter egg */
-  /* The KALAN plate in the Start menu is a door. Clicking it closes the shell
-     down, rewrites its own name to ARCADE, and hands this very tab over to
-     Jojo's arcade -- location.href rather than window.open, because leaving is
-     the whole point and a new tab would leave the illusion behind. */
+  /* The KALAN plate in the Start menu is a door. Clicking it kills the screen
+     the way a cabinet's tube dies, then lights the cabinet's own marquee and
+     hands this very tab over to Jojo's arcade -- location.href rather than
+     window.open, because leaving is the whole point and a new tab would leave
+     the illusion behind. */
 
   var PORTAL_URL = 'https://jojosarcade.vercel.app';
   var PORTAL_FROM = 'KALAN';
   var PORTAL_TO = 'ARCADE';
-  /* No vowels, and no characters that read as words, so the noise looks like
-     static rather than like a half-formed message. */
-  var PORTAL_GLYPHS = 'BCDFGHJKLMNPRSTVWXZ0123456789#$%&@*+=<>|/\\~^';
+  var PORTAL_COIN = 'INSERER UNE PIECE';
   var portalBusy = false;
 
-  function paintPortal(s) {
-    portalWord.textContent = s;
-    portalGhosts[0].textContent = s;
-    portalGhosts[1].textContent = s;
-  }
-
-  function portalNoise(n) {
-    var s = '';
-    for (var i = 0; i < n; i++) {
-      s += PORTAL_GLYPHS.charAt((Math.random() * PORTAL_GLYPHS.length) | 0);
-    }
-    return s;
-  }
-
-  /* Characters settle left to right and everything past the frontier is still
-     static, so the eye reads a decode rather than a fade. easeOutCubic makes
-     the last few letters race into place, which is the satisfying part. */
-  function scramblePortal(target, ms, done) {
-    var start = null;
-    var n = Math.max(portalWord.textContent.length, target.length);
-    var to = target;
-    function frame(now) {
-      if (start === null) start = now;
-      var t = Math.min(1, (now - start) / ms);
-      var settled = Math.floor((1 - Math.pow(1 - t, 3)) * n);
-      var s = '';
-      for (var i = 0; i < n; i++) {
-        s += i < settled
-          ? to.charAt(i)
-          : PORTAL_GLYPHS.charAt((Math.random() * PORTAL_GLYPHS.length) | 0);
-      }
-      paintPortal(s);
-      if (t < 1) requestAnimationFrame(frame);
-      else { paintPortal(target); if (done) done(); }
-    }
-    requestAnimationFrame(frame);
-  }
-
-  function typePortalSub(text, ms) {
-    var i = 0;
-    (function step() {
-      portalSub.textContent = text.slice(0, ++i);
-      if (i < text.length) setTimeout(step, ms);
-    })();
+  function portalStep(name) {
+    portalEl.classList.add(name);
   }
 
   function openPortal() {
@@ -1387,33 +1345,25 @@
 
     if (reducedMotion()) {
       portalEl.hidden = false;
-      paintPortal(PORTAL_TO);
-      setTimeout(function () { location.href = PORTAL_URL; }, 400);
+      setTimeout(function () { location.href = PORTAL_URL; }, 260);
       return;
     }
 
     portalEl.hidden = false;
     portalEl.className = 'portal';
-    paintPortal(PORTAL_FROM);
-    portalSub.textContent = '';
-    /* read a layout property so the entry animation is not skipped by the
-       hidden -> visible flip landing in the same frame as the class change */
-    void portalEl.offsetWidth;
-    portalEl.classList.add('open');
+    portalCoin.textContent = PORTAL_COIN;
 
-    /* the name tears itself apart */
-    setTimeout(function () { scramblePortal(portalNoise(6), 210, null); }, 170);
-    /* and resolves as ARCADE, which locks the neon on */
-    setTimeout(function () {
-      scramblePortal(PORTAL_TO, 620, function () { portalEl.classList.add('locked'); });
-    }, 400);
-    /* the address types itself underneath */
-    setTimeout(function () { typePortalSub('jojosarcade.vercel.app', 32); }, 1340);
-    /* neon surge and the CRT refresh bar */
-    setTimeout(function () { portalEl.classList.add('surge'); }, 2080);
-    /* blow out, collapse to a scanline, and go */
-    setTimeout(function () { portalEl.classList.add('blast'); }, 2760);
-    setTimeout(function () { location.href = PORTAL_URL; }, 2960);
+    /* the tube holds the lit picture for a beat, then collapses to a line */
+    portalStep('tube-off');
+    /* the room thickens to opaque as the picture goes */
+    setTimeout(function () { portalStep('dark'); }, 170);
+    /* the line flares and dies */
+    setTimeout(function () { portalStep('tube-dead'); }, 380);
+    /* and only now the cabinet's marquee strikes up out of the dark */
+    setTimeout(function () { portalStep('sign-on'); }, 560);
+    /* the coin is taken, the sign browns out, and the tab changes hands */
+    setTimeout(function () { portalStep('cut'); }, 1180);
+    setTimeout(function () { location.href = PORTAL_URL; }, 1440);
   }
 
   /* -------------------------------------------------------- confetti ---- */
