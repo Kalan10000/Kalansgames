@@ -365,9 +365,10 @@
   function clearSelection() { paintSelection([]); }
 
   /* -------------------------------------------------------- launching ---- */
-  /* Every tab is opened from one synchronous run of calls made inside the
-     click handler that triggered it, so the browser still sees a single user
-     gesture and does not block the burst. */
+  /* Only ever one tab per gesture. Browsers treat a burst of window.open
+     calls as a single gesture and block every one after the first, so there is
+     no way to open a selection as tabs from here -- hence no "open in new
+     tabs" entry anywhere. Many apps means many windows in this tab instead. */
 
   function openInTab(id) {
     var g = byId(id);
@@ -375,8 +376,6 @@
     window.open(g.url, '_blank', 'noopener');
     recordPlay(id);
   }
-
-  function openManyInTabs(ids) { ids.forEach(openInTab); }
 
   function openManyWindowed(ids) { ids.forEach(openGame); }
 
@@ -392,10 +391,7 @@
   function onIconDblClick(e) {
     var b = e.target.closest('.dicon');
     if (!b) return;
-    var ids = selectedIds();
-    /* shift-double-click leaves several icons selected, so honour the lot */
-    if (ids.length > 1 && ids.indexOf(b.dataset.id) > -1) openManyInTabs(ids);
-    else openInTab(b.dataset.id);
+    openInTab(b.dataset.id);
   }
 
   function onIconContext(e) {
@@ -411,19 +407,24 @@
     var one = ids.length === 1;
     var label = one ? byId(id).title : ids.length + ' APPS';
 
-    showCtx(e.clientX, e.clientY, [
-      {
-        label: 'Open ' + label + ' in new tab' + (one ? '' : 's'),
+    var items = [];
+    if (one) {
+      /* a single app can go to a tab, but several cannot, so the entry only
+         appears when exactly one icon is selected */
+      items.push({
+        label: 'Open ' + label + ' in new tab',
         glyph: icon(id),
-        act: function () { openManyInTabs(ids); }
-      },
-      {
-        label: 'Open ' + label + ' windowed',
-        act: function () { openManyWindowed(ids); }
-      },
-      { sep: true },
-      { label: 'Reset placements', act: resetIconLayout }
-    ]);
+        act: function () { openInTab(id); }
+      });
+    }
+    items.push({
+      label: 'Open ' + label + ' windowed',
+      act: function () { openManyWindowed(ids); }
+    });
+    items.push({ sep: true });
+    items.push({ label: 'Reset placements', act: resetIconLayout });
+
+    showCtx(e.clientX, e.clientY, items);
   }
 
   /* ----------------------------------------------------- rubber band ---- */
@@ -1073,10 +1074,10 @@
       '<li><b>Drag an icon</b> to move it around -- the layout is saved.</li>' +
       '</ul>' +
       '<h4>MULTIPLE APPS</h4>' +
-      '<p>With more than one icon selected, right-click acts on all of them ' +
-      'at once. <code>Open in new tabs</code> fires them all off as separate ' +
-      'browser tabs, <code>Open windowed</code> stacks them as draggable ' +
-      'windows inside this tab.</p>' +
+      '<p>With more than one icon selected, right-click opens the whole ' +
+      'selection as windows stacked inside this tab. Browsers block opening ' +
+      'several tabs from one click, so a group of apps only goes in as ' +
+      'windows -- for tabs, open them one at a time.</p>' +
       '<div class="stat-row">' +
       '<div class="stat"><b>' + GAMES.length + '</b><i>installed</i></div>' +
       '<div class="stat"><b>' + tried + '</b><i>opened</i></div>' +
@@ -1101,9 +1102,8 @@
       '<ul>' +
       '<li>Games run in an iframe so the hub stays loaded underneath.</li>' +
       '<li>Use <code>POP OUT</code> if a game wants a real tab or full screen.</li>' +
-      '<li>Browsers cap how many tabs one click may open, so very large ' +
-      'selections can be partly blocked. Open them in smaller batches if that ' +
-      'happens.</li>' +
+      '<li>Only one tab can be opened per click, so multi-selections open as ' +
+      'windows rather than tabs.</li>' +
       '<li>Launch counts and layouts are stored in your browser only.</li>' +
       '</ul>';
 
@@ -1266,9 +1266,7 @@
 
       if (e.key === 'Enter') {
         e.preventDefault();
-        var ids = selectedIds();
-        if (ids.indexOf(iconBtns[i].dataset.id) > -1 && ids.length > 1) openManyInTabs(ids);
-        else openInTab(iconBtns[i].dataset.id);
+        openInTab(iconBtns[i].dataset.id);
         return;
       }
 
@@ -1338,8 +1336,6 @@
     open: openGame,
     openAll: function () { GAMES.forEach(function (g) { openGame(g.id); }); },
     openTab: openInTab,
-    openTabs: function (ids) { openManyInTabs(ids || selectedIds()); },
-    openSelectedTabs: function () { openManyInTabs(selectedIds()); },
     openSelectedWindowed: function () { openManyWindowed(selectedIds()); },
     selection: selectedIds,
     selectAll: selectAll,
