@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    KALAN OS 5.1  --  window manager + shell
    Depends on games.js (window.GAMES, window.PALETTE)
    ========================================================================== */
@@ -1031,7 +1031,6 @@
   var portalEl = $('#portal');
   var portalCoin = $('#portal-coin');
   var shellWired = false;
-
   function closeMenus() {
     ctxEl.hidden = true;
     startEl.hidden = true;
@@ -1238,6 +1237,16 @@
       if (!e.target.closest('#ctx')) closeMenus();
     });
 
+    /* The cabinet overlay is full-screen and pointer-events:auto, so once it is
+       up it swallows every click on the desktop beneath. A second click skips
+       straight to the arcade, which means a broken or missing stylesheet can
+       never leave anyone locked out of their own desktop. */
+    document.addEventListener('click', function (e) {
+      if (!portalBusy || !portalEl || portalEl.hidden) return;
+      if (!e.target.closest('#portal')) return;
+      leavePortal();
+    });
+
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Escape') return;
       closeMenus();
@@ -1334,9 +1343,33 @@
   var PORTAL_TO = 'ARCADE';
   var PORTAL_COIN = 'INSERER UNE PIECE';
   var portalBusy = false;
+  var portalTimers = [];
+  var portalFailsafe = 0;
 
   function portalStep(name) {
+    if (!portalEl) return;
     portalEl.classList.add(name);
+  }
+
+  function portalAfter(ms, fn) {
+    portalTimers.push(setTimeout(fn, ms));
+  }
+
+  function leavePortal() {
+    for (var i = 0; i < portalTimers.length; i++) clearTimeout(portalTimers[i]);
+    portalTimers.length = 0;
+    clearTimeout(portalFailsafe);
+    location.href = PORTAL_URL;
+  }
+
+  /* Tear the overlay down and hand the tab over. The arc is pure decoration,
+     so if any part of it fails -- a missing node, a stylesheet that never
+     loaded -- the worst case is that you simply land on the arcade without
+     the ceremony. It must never be possible to strand someone staring at a
+     stuck overlay, so every failure path funnels through here. */
+  function bailPortal() {
+    if (portalEl) portalEl.hidden = true;
+    leavePortal();
   }
 
   function openPortal() {
@@ -1344,26 +1377,37 @@
     portalBusy = true;
 
     if (reducedMotion()) {
-      portalEl.hidden = false;
-      setTimeout(function () { location.href = PORTAL_URL; }, 260);
+      if (portalEl) portalEl.hidden = false;
+      setTimeout(leavePortal, 260);
       return;
     }
 
-    portalEl.hidden = false;
-    portalEl.className = 'portal';
-    portalCoin.textContent = PORTAL_COIN;
+    try {
+      if (!portalEl) { leavePortal(); return; }
+      portalEl.hidden = false;
+      portalEl.className = 'portal';
+      if (portalCoin) portalCoin.textContent = PORTAL_COIN;
 
-    /* the tube holds the lit picture for a beat, then collapses to a line */
-    portalStep('tube-off');
-    /* the room thickens to opaque as the picture goes */
-    setTimeout(function () { portalStep('dark'); }, 170);
-    /* the line flares and dies */
-    setTimeout(function () { portalStep('tube-dead'); }, 380);
-    /* and only now the cabinet's marquee strikes up out of the dark */
-    setTimeout(function () { portalStep('sign-on'); }, 560);
-    /* the coin is taken, the sign browns out, and the tab changes hands */
-    setTimeout(function () { portalStep('cut'); }, 1180);
-    setTimeout(function () { location.href = PORTAL_URL; }, 1440);
+      /* the tube holds the lit picture for a beat, then collapses to a line */
+      portalStep('tube-off');
+      /* the room thickens to opaque as the picture goes */
+      portalAfter(170, function () { portalStep('dark'); });
+      /* the line flares and dies */
+      portalAfter(380, function () { portalStep('tube-dead'); });
+      /* and only now the cabinet's marquee strikes up out of the dark */
+      portalAfter(560, function () { portalStep('sign-on'); });
+      /* the coin is taken, the sign browns out, and the tab changes hands */
+      portalAfter(1180, function () { portalStep('cut'); });
+      portalAfter(1440, leavePortal);
+    } catch (e) {
+      bailPortal();
+      return;
+    }
+
+    /* Nothing above can be allowed to be the only route off this page. If the
+       hand-off is blocked or the tab is restored from bfcache, drop the
+       overlay and go again rather than leaving a full-screen panel up. */
+    portalFailsafe = setTimeout(bailPortal, 3000);
   }
 
   /* -------------------------------------------------------- confetti ---- */
