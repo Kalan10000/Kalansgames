@@ -163,8 +163,10 @@
       b.type = 'button';
       b.dataset.id = game.id;
       b.dataset.idx = idx;
-      b.title = game.title + ' - ' + game.blurb;
-      b.setAttribute('aria-label', 'Open ' + game.title);
+      b.title = game.title + ' - ' + game.blurb +
+        '\nclick to select, double-click for a new tab, right-click for the menu';
+      b.setAttribute('aria-label', game.title + '. Double-click to open in a new tab, ' +
+        'right-click to open windowed.');
       b.innerHTML =
         '<span class="art">' + icon(game.id) + '</span>' +
         '<span class="lbl">' + esc(game.title) + '</span>' +
@@ -175,10 +177,7 @@
     });
 
     iconsEl.addEventListener('click', onIconClick);
-    iconsEl.addEventListener('dblclick', function (e) {
-      var b = e.target.closest('.dicon');
-      if (b) openGame(b.dataset.id);
-    });
+    iconsEl.addEventListener('dblclick', onIconDblClick);
     iconsEl.addEventListener('contextmenu', onIconContext);
     renderBadges();
     applySavedLayout();
@@ -196,6 +195,21 @@
      only while it is still plausible -- matching on the element matters, since
      a blanket timeout also ate the next click on any other icon. */
   var swallow = { el: null, until: 0 };
+
+  function armSwallow(el, ms) {
+    swallow.el = el;
+    swallow.until = Date.now() + (ms || 400);
+  }
+
+  /* iconsEl counts as a match too: the rubber band is released over whatever
+     is under the cursor, and that click would otherwise collapse the band
+     selection to a single icon. */
+  function wasSwallowed(el) {
+    if (Date.now() >= swallow.until) return false;
+    if (swallow.el !== el && swallow.el !== iconsEl) return false;
+    swallow.el = null;
+    return true;
+  }
 
   function loadLayout() { return readJSON(STORE_POS, {}); }
 
@@ -307,8 +321,7 @@
         el.removeEventListener('pointercancel', onUp);
         if (!dragging) return;
         el.classList.remove('dragging');
-        swallow.el = el;
-        swallow.until = Date.now() + 400;
+        armSwallow(el);
         /* if no click follows (pointer released off the icon) do not stay armed */
         setTimeout(function () { if (swallow.el === el) swallow.el = null; }, 0);
         rememberIcon(el);
@@ -320,25 +333,208 @@
     });
   }
 
+  /* ------------------------------------------------------- selection ---- */
+  /* A single click never launches anything, it only selects. Launching has to
+     be a deliberate act: double click for a real browser tab, right click for
+     the menu. Selection is read back out of the .sel class so the DOM stays
+     the single source of truth and nothing can drift from it. */
+
+  function selectedIds() {
+    return iconBtns
+      .filter(function (b) { return b.classList.contains('sel'); })
+      .map(function (b) { return b.dataset.id; });
+  }
+
+  function paintSelection(ids) {
+    iconBtns.forEach(function (b) {
+      b.classList.toggle('sel', ids.indexOf(b.dataset.id) > -1);
+    });
+  }
+
+  function selectOnly(id) { paintSelection([id]); }
+
+  function addToSelection(id) {
+    var ids = selectedIds();
+    var at = ids.indexOf(id);
+    if (at > -1) ids.splice(at, 1); else ids.push(id);
+    paintSelection(ids);
+  }
+
+  function selectAll() { paintSelection(GAMES.map(function (g) { return g.id; })); }
+
+  function clearSelection() { paintSelection([]); }
+
+  /* -------------------------------------------------------- launching ---- */
+  /* Every tab is opened from one synchronous run of calls made inside the
+     click handler that triggered it, so the browser still sees a single user
+     gesture and does not block the burst. */
+
+  function openInTab(id) {
+    var g = byId(id);
+    if (!g) return;
+    window.open(g.url, '_blank', 'noopener');
+    recordPlay(id);
+  }
+
+  function openManyInTabs(ids) { ids.forEach(openInTab); }
+
+  function openManyWindowed(ids) { ids.forEach(openGame); }
+
   function onIconClick(e) {
     var b = e.target.closest('.dicon');
     if (!b) return;
-    /* a drag ends with a click; do not launch the game in that case */
-    if (swallow.el === b && Date.now() < swallow.until) { swallow.el = null; return; }
-    iconBtns.forEach(function (x) { x.classList.remove('sel'); });
-    b.classList.add('sel');
-    openGame(b.dataset.id);
+    /* a drag, or the end of a rubber band, lands a real click on the icon */
+    if (wasSwallowed(b)) return;
+    if (e.shiftKey || e.ctrlKey || e.metaKey) addToSelection(b.dataset.id);
+    else selectOnly(b.dataset.id);
+  }
+
+  function onIconDblClick(e) {
+    var b = e.target.closest('.dicon');
+    if (!b) return;
+    var ids = selectedIds();
+    /* shift-double-click leaves several icons selected, so honour the lot */
+    if (ids.length > 1 && ids.indexOf(b.dataset.id) > -1) openManyInTabs(ids);
+    else openInTab(b.dataset.id);
   }
 
   function onIconContext(e) {
     var b = e.target.closest('.dicon');
     if (!b) return;
     e.preventDefault();
-    var g = byId(b.dataset.id);
+    var id = b.dataset.id;
+    var ids = selectedIds();
+    /* right clicking outside the current selection retargets it, the way every
+       file manager behaves */
+    if (ids.indexOf(id) === -1) { selectOnly(id); ids = [id]; }
+
+    var one = ids.length === 1;
+    var label = one ? byId(id).title : ids.length + ' APPS';
+
     showCtx(e.clientX, e.clientY, [
-      { label: 'Open ' + g.title, glyph: icon(g.id), act: function () { openGame(g.id); } },
-      { label: 'Open in new tab', act: function () { window.open(g.url, '_blank', 'noopener'); recordPlay(g.id); } }
+      {
+        label: 'Open ' + label + ' in new tab' + (one ? '' : 's'),
+        glyph: icon(id),
+        act: function () { openManyInTabs(ids); }
+      },
+      {
+        label: 'Open ' + label + ' windowed',
+        act: function () { openManyWindowed(ids); }
+      },
+      { sep: true },
+      { label: 'Reset placements', act: resetIconLayout }
     ]);
+  }
+
+  /* ----------------------------------------------------- rubber band ---- */
+  /* Dragging the wallpaper sweeps a selection box, the same idea as dragging
+     across files in a file manager. The band is appended to the desktop rather
+     than the icon layer because .icons clips its overflow, which would chop
+     the band off at the icon area once icons have been dragged free of the
+     grid. */
+
+  var MARQUEE_BLOCKERS = '.dicon, .win, .taskbar, .menu, .start-btn, .marquee';
+  var marquee = null;
+
+  function rubberBox(m, host) {
+    var x = Math.min(m.x0, m.x1);
+    var y = Math.min(m.y0, m.y1);
+    var r = Math.max(m.x0, m.x1);
+    var b = Math.max(m.y0, m.y1);
+    /* clipped to the icon area so the band can never be drawn over the
+       taskbar, even when the pointer strays down there */
+    var left = Math.max(host.left, x);
+    var top = Math.max(host.top, y);
+    var right = Math.min(host.right, r);
+    var bottom = Math.min(host.bottom, b);
+    return {
+      x: left, y: top,
+      w: Math.max(0, right - left),
+      h: Math.max(0, bottom - top)
+    };
+  }
+
+  function overlaps(r, box) {
+    return r.left < box.x + box.w && r.right > box.x &&
+      r.top < box.y + box.h && r.bottom > box.y;
+  }
+
+  function startMarquee(e) {
+    var desk = $('#desktop');
+    var host = iconsEl.getBoundingClientRect();
+    var m = {
+      x0: e.clientX, y0: e.clientY,
+      x1: e.clientX, y1: e.clientY,
+      add: e.shiftKey || e.ctrlKey || e.metaKey,
+      base: selectedIds(),
+      moved: false,
+      el: document.createElement('div')
+    };
+    m.el.className = 'marquee';
+    m.el.setAttribute('aria-hidden', 'true');
+    desk.appendChild(m.el);
+    desk.classList.add('banding');
+    marquee = m;
+
+    function paint() {
+      var box = rubberBox(m, host);
+      m.el.style.left = box.x + 'px';
+      m.el.style.top = box.y + 'px';
+      m.el.style.width = box.w + 'px';
+      m.el.style.height = box.h + 'px';
+      var ids = m.add ? m.base.slice() : [];
+      iconBtns.forEach(function (b) {
+        if (ids.indexOf(b.dataset.id) > -1) return;
+        if (overlaps(b.getBoundingClientRect(), box)) ids.push(b.dataset.id);
+      });
+      paintSelection(ids);
+    }
+
+    function onMove(ev) {
+      m.x1 = ev.clientX; m.y1 = ev.clientY;
+      if (!m.moved) {
+        if (Math.abs(m.x1 - m.x0) < DRAG_SLOP && Math.abs(m.y1 - m.y0) < DRAG_SLOP) return;
+        m.moved = true;
+      }
+      ev.preventDefault();
+      paint();
+    }
+
+    function onUp() {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('blur', onBlur);
+      desk.classList.remove('banding');
+      if (marquee === m) marquee = null;
+      m.el.remove();
+      if (m.moved) {
+        /* the release fires a click on whatever sits under the cursor */
+        armSwallow(iconsEl, 250);
+      } else if (!m.add) {
+        /* a plain click on the wallpaper is the "click the floor to deselect"
+           gesture */
+        clearSelection();
+      }
+    }
+
+    /* A pointerup outside the browser window is never delivered, so the band
+       would stay on screen with its listeners still armed. Tear down without
+       committing the selection the way a real release would. */
+    function onBlur() {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('blur', onBlur);
+      desk.classList.remove('banding');
+      if (marquee === m) marquee = null;
+      m.el.remove();
+    }
+
+    document.addEventListener('pointermove', onMove, { passive: false });
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+    window.addEventListener('blur', onBlur);
   }
 
   function renderBadges() {
@@ -831,6 +1027,7 @@
 
   function showCtx(x, y, items) {
     ctxEl.innerHTML = items.map(function (it, i) {
+      if (it.sep) return '<div class="mi-sep" role="separator"></div>';
       return '<button class="menu-item" type="button" data-i="' + i + '">' +
         (it.glyph ? '<span class="mi-icon">' + it.glyph + '</span>' : '<span class="mi-glyph" style="background:transparent"></span>') +
         '<span>' + esc(it.label) + '</span></button>';
@@ -865,16 +1062,29 @@
 
     var body =
       '<h4>WELCOME TO KALAN OS</h4>' +
-      '<p>This is a fake desktop that launches real games. Click an icon to ' +
-      'open it, or drag an icon anywhere you like -- the layout is saved. ' +
-      'Windows drag by their title bar, resize from any edge or corner, and ' +
-      'double-click the title bar to maximise. Window sizes are remembered ' +
-      'too.</p>' +
+      '<p>This is a fake desktop that launches real games.</p>' +
+      '<h4>MOUSE</h4>' +
+      '<ul>' +
+      '<li><b>Click</b> an icon to select it.</li>' +
+      '<li><b>Double-click</b> to open a game in a real browser tab.</li>' +
+      '<li><b>Right-click</b> for the menu: new tab, or windowed in this tab.</li>' +
+      '<li><b>Drag the wallpaper</b> to sweep a box over several icons at once.</li>' +
+      '<li><b>Shift-click</b> adds or removes an icon from the selection.</li>' +
+      '<li><b>Drag an icon</b> to move it around -- the layout is saved.</li>' +
+      '</ul>' +
+      '<h4>MULTIPLE APPS</h4>' +
+      '<p>With more than one icon selected, right-click acts on all of them ' +
+      'at once. <code>Open in new tabs</code> fires them all off as separate ' +
+      'browser tabs, <code>Open windowed</code> stacks them as draggable ' +
+      'windows inside this tab.</p>' +
       '<div class="stat-row">' +
       '<div class="stat"><b>' + GAMES.length + '</b><i>installed</i></div>' +
       '<div class="stat"><b>' + tried + '</b><i>opened</i></div>' +
       '<div class="stat"><b>' + total + '</b><i>launches</i></div>' +
       '</div>' +
+      '<h4>WINDOWS</h4>' +
+      '<p>Windows drag by their title bar, resize from any edge or corner, and ' +
+      'double-click the title bar to maximise. Window sizes are remembered too.</p>' +
       '<h4>GENRES</h4><p>' + esc(catList) + '</p>' +
       '<h4>ADDING A GAME</h4>' +
       '<p>Open <code>games.js</code> and add one object to the <code>GAMES</code> ' +
@@ -891,7 +1101,10 @@
       '<ul>' +
       '<li>Games run in an iframe so the hub stays loaded underneath.</li>' +
       '<li>Use <code>POP OUT</code> if a game wants a real tab or full screen.</li>' +
-      '<li>Launch counts are stored in your browser only, not on a server.</li>' +
+      '<li>Browsers cap how many tabs one click may open, so very large ' +
+      'selections can be partly blocked. Open them in smaller batches if that ' +
+      'happens.</li>' +
+      '<li>Launch counts and layouts are stored in your browser only.</li>' +
       '</ul>';
 
     openCustom('About KALAN OS', '#1d4ed8', body, 'about-body');
@@ -998,6 +1211,8 @@
       if (cmd === 'about') openAbout();
       else if (cmd === 'closeall') closeAll();
       else if (cmd === 'resetlayout') resetIconLayout();
+      else if (cmd === 'selectall') selectAll();
+      else if (cmd === 'clearsel') clearSelection();
       else if (cmd === 'reboot') location.reload();
     });
 
@@ -1007,14 +1222,31 @@
     });
 
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeMenus();
+      if (e.key !== 'Escape') return;
+      closeMenus();
+      /* Escape inside an icon belongs to that icon, not to the whole desktop */
+      if (e.target.closest && e.target.closest('.dicon')) return;
+      clearSelection();
     });
 
     var desk = $('#desktop');
+    /* Rubber band selection: any press that lands on bare wallpaper or on the
+       icon layer's own gaps. Icons, windows, menus and the taskbar are all
+       excluded, so their own gestures keep working untouched. */
+    desk.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0) return;
+      if (e.target.closest(MARQUEE_BLOCKERS)) return;
+      if (marquee) return;
+      startMarquee(e);
+    });
+
     desk.addEventListener('contextmenu', function (e) {
       if (e.target.closest('.win') || e.target.closest('.dicon')) return;
       e.preventDefault();
       showCtx(e.clientX, e.clientY, [
+        { label: 'Select all apps', act: selectAll },
+        { label: 'Clear selection', act: clearSelection },
+        { sep: true },
         { label: 'Cascade windows', act: cascadeWindows },
         { label: 'Tile windows', act: tileWindows },
         { label: 'Minimise all', act: function () { windows.filter(function (w) { return !w.min; }).forEach(minimise); } },
@@ -1025,10 +1257,21 @@
       ]);
     });
 
-    /* desktop icon keyboard nav */
+    /* desktop icon keyboard nav. Arrows carry the selection with them, and
+       shift extends it, which is the only way to build a multi selection
+       without a pointer. */
     iconsEl.addEventListener('keydown', function (e) {
       var i = iconBtns.indexOf(document.activeElement);
       if (i < 0) return;
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var ids = selectedIds();
+        if (ids.indexOf(iconBtns[i].dataset.id) > -1 && ids.length > 1) openManyInTabs(ids);
+        else openInTab(iconBtns[i].dataset.id);
+        return;
+      }
+
       var cols = 6;
       var next = null;
       if (e.key === 'ArrowDown') next = i + cols;
@@ -1036,8 +1279,19 @@
       else if (e.key === 'ArrowRight') next = i + 1;
       else if (e.key === 'ArrowLeft') next = i - 1;
       if (next === null) return;
+      if (!iconBtns[next]) return;
       e.preventDefault();
-      if (iconBtns[next]) iconBtns[next].focus();
+      if (e.shiftKey) addToSelection(iconBtns[next].dataset.id);
+      else selectOnly(iconBtns[next].dataset.id);
+      iconBtns[next].focus();
+    });
+
+    /* Ctrl+A on the desktop means "select every app", not "select the page" */
+    document.addEventListener('keydown', function (e) {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'a') return;
+      if (!startEl.hidden || !ctxEl.hidden) return;
+      e.preventDefault();
+      selectAll();
     });
 
     window.addEventListener('resize', function () {
@@ -1083,6 +1337,13 @@
     games: GAMES,
     open: openGame,
     openAll: function () { GAMES.forEach(function (g) { openGame(g.id); }); },
+    openTab: openInTab,
+    openTabs: function (ids) { openManyInTabs(ids || selectedIds()); },
+    openSelectedTabs: function () { openManyInTabs(selectedIds()); },
+    openSelectedWindowed: function () { openManyWindowed(selectedIds()); },
+    selection: selectedIds,
+    selectAll: selectAll,
+    clearSelection: clearSelection,
     openAbout: openAbout,
     close: closeWin,
     closeAll: closeAll,

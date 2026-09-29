@@ -337,6 +337,24 @@ body {
   background: #12414d;
 }
 
+/* Rubber-band selection box. Solid fill, dashed edge, no blur or round corners.
+   Sits above the window layer (which tops out in the tens) but below the
+   taskbar at 400, so the band stays readable even when swept over a window. */
+.marquee {
+  position: absolute;
+  z-index: 390;
+  pointer-events: none;
+  background: rgba(34, 211, 238, 0.14);
+  border: 2px dashed var(--accent);
+}
+
+/* Sweeping the background reads as a drag, not a click. */
+.desktop.banding,
+.desktop.banding .wallpaper,
+.desktop.banding .icons {
+  cursor: crosshair;
+}
+
 .dicon:active .art {
   transform: scale(0.85);
 }
@@ -977,6 +995,30 @@ body {
     linear-gradient(var(--ink) 0 0) 10px 10px / 6px 6px no-repeat;
 }
 
+/* four blocks with the right pair hollowed out, for Select all */
+.mi-selectall {
+  background:
+    linear-gradient(var(--ink) 0 0) 0 0 / 6px 6px no-repeat,
+    linear-gradient(var(--ink) 0 0) 10px 0 / 6px 6px no-repeat,
+    linear-gradient(var(--ink) 0 0) 0 10px / 6px 6px no-repeat,
+    linear-gradient(var(--ink) 0 0) 10px 10px / 6px 6px no-repeat,
+    linear-gradient(#c3c3d6 0 0) 0 0 / 6px 6px no-repeat,
+    linear-gradient(#c3c3d6 0 0) 0 10px / 6px 6px no-repeat;
+}
+
+/* the same shape knocked out entirely, for Clear selection */
+.mi-clearsel {
+  background:
+    linear-gradient(var(--ink) 0 0) 0 0 / 6px 6px no-repeat,
+    linear-gradient(var(--ink) 0 0) 10px 0 / 6px 6px no-repeat,
+    linear-gradient(var(--ink) 0 0) 0 10px / 6px 6px no-repeat,
+    linear-gradient(var(--ink) 0 0) 10px 10px / 6px 6px no-repeat,
+    linear-gradient(var(--face-dk) 0 0) 0 0 / 6px 6px no-repeat,
+    linear-gradient(var(--face-dk) 0 0) 10px 0 / 6px 6px no-repeat,
+    linear-gradient(var(--face-dk) 0 0) 0 10px / 6px 6px no-repeat,
+    linear-gradient(var(--face-dk) 0 0) 10px 10px / 6px 6px no-repeat;
+}
+
 .mi-reboot {
   background: var(--ink);
   clip-path: polygon(0 0, 60% 0, 60% 30%, 100% 30%, 40% 100%, 40% 65%, 0 65%);
@@ -989,6 +1031,15 @@ body {
 
 .ctx-menu {
   min-width: 172px;
+}
+
+/* Divider between the launch commands and the layout commands. A div, not a
+   button, so it never joins the tab order or the click handlers. */
+.mi-sep {
+  height: 2px;
+  margin: 3px 2px;
+  background: var(--face-dkr);
+  box-shadow: 0 1px 0 var(--face-lt);
 }
 
 /* ===================== BOOT-TIME MODAL CONTENT ===================== */
