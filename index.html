@@ -71,10 +71,10 @@
 
     <!-- ===================== START MENU ===================== -->
     <div id="start-menu" class="menu start-menu" hidden role="menu">
-      <div class="start-head">
-        <div class="start-head-name">KALAN</div>
-        <div class="start-head-ver">OS 5.1</div>
-      </div>
+      <button class="start-head" type="button" data-cmd="arcade">
+        <span class="start-head-name">KALAN</span>
+        <span class="start-head-ver">OS 5.1</span>
+      </button>
       <div class="start-scroll">
         <button class="menu-item" data-cmd="selectall">
           <span class="mi-glyph mi-selectall" aria-hidden="true"></span>
@@ -101,6 +101,17 @@
           <span>Close all windows</span>
         </button>
       </div>
+    </div>
+
+    <!-- ===================== EASTER EGG: ARCADE PORTAL ===================== -->
+    <div id="portal" class="portal" hidden aria-hidden="true">
+      <div class="portal-scan" aria-hidden="true"></div>
+      <div class="portal-stack">
+        <span class="portal-ghost portal-ghost-c" data-ghost="c"></span>
+        <span class="portal-ghost portal-ghost-m" data-ghost="m"></span>
+        <span class="portal-word" id="portal-word">KALAN</span>
+      </div>
+      <p class="portal-sub" id="portal-sub"></p>
     </div>
 
   </div>

@@ -1,4 +1,4 @@
-/* ==========================================================================
+﻿/* ==========================================================================
    KALAN OS 5.1  --  window manager + shell
    Depends on games.js (window.GAMES, window.PALETTE)
    ========================================================================== */
@@ -18,6 +18,16 @@
   /* ---------------------------------------------------------------- utils */
 
   var $ = function (sel, root) { return (root || document).querySelector(sel); };
+
+  /* matchMedia exists in every browser but not in every test harness, and both
+     the confetti and the arcade portal hinge on it. One guarded reader, so a
+     missing implementation degrades instead of throwing mid-animation. */
+  function reducedMotion() {
+    try {
+      return !!(window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    } catch (e) { return false; }
+  }
 
   function esc(str) {
     return String(str).replace(/[&<>"']/g, function (c) {
@@ -1018,6 +1028,10 @@
   var ctxEl = $('#ctx');
   var startEl = $('#start-menu');
   var startBtn = $('#start-btn');
+  var portalEl = $('#portal');
+  var portalWord = $('#portal-word');
+  var portalSub = $('#portal-sub');
+  var portalGhosts = portalEl.querySelectorAll('.portal-ghost');
   var shellWired = false;
 
   function closeMenus() {
@@ -1104,6 +1118,7 @@
       '<li>Use <code>POP OUT</code> if a game wants a real tab or full screen.</li>' +
       '<li>Only one tab can be opened per click, so multi-selections open as ' +
       'windows rather than tabs.</li>' +
+      '<li>The <b>KALAN</b> plate at the top of the Start menu is not a label.</li>' +
       '<li>Launch counts and layouts are stored in your browser only.</li>' +
       '</ul>';
 
@@ -1213,6 +1228,7 @@
       else if (cmd === 'resetlayout') resetIconLayout();
       else if (cmd === 'selectall') selectAll();
       else if (cmd === 'clearsel') clearSelection();
+      else if (cmd === 'arcade') openPortal();
       else if (cmd === 'reboot') location.reload();
     });
 
@@ -1305,10 +1321,105 @@
     });
   }
 
+  /* ----------------------------------------------------------- easter egg */
+  /* The KALAN plate in the Start menu is a door. Clicking it closes the shell
+     down, rewrites its own name to ARCADE, and hands this very tab over to
+     Jojo's arcade -- location.href rather than window.open, because leaving is
+     the whole point and a new tab would leave the illusion behind. */
+
+  var PORTAL_URL = 'https://jojosarcade.vercel.app';
+  var PORTAL_FROM = 'KALAN';
+  var PORTAL_TO = 'ARCADE';
+  /* No vowels, and no characters that read as words, so the noise looks like
+     static rather than like a half-formed message. */
+  var PORTAL_GLYPHS = 'BCDFGHJKLMNPRSTVWXZ0123456789#$%&@*+=<>|/\\~^';
+  var portalBusy = false;
+
+  function paintPortal(s) {
+    portalWord.textContent = s;
+    portalGhosts[0].textContent = s;
+    portalGhosts[1].textContent = s;
+  }
+
+  function portalNoise(n) {
+    var s = '';
+    for (var i = 0; i < n; i++) {
+      s += PORTAL_GLYPHS.charAt((Math.random() * PORTAL_GLYPHS.length) | 0);
+    }
+    return s;
+  }
+
+  /* Characters settle left to right and everything past the frontier is still
+     static, so the eye reads a decode rather than a fade. easeOutCubic makes
+     the last few letters race into place, which is the satisfying part. */
+  function scramblePortal(target, ms, done) {
+    var start = null;
+    var n = Math.max(portalWord.textContent.length, target.length);
+    var to = target;
+    function frame(now) {
+      if (start === null) start = now;
+      var t = Math.min(1, (now - start) / ms);
+      var settled = Math.floor((1 - Math.pow(1 - t, 3)) * n);
+      var s = '';
+      for (var i = 0; i < n; i++) {
+        s += i < settled
+          ? to.charAt(i)
+          : PORTAL_GLYPHS.charAt((Math.random() * PORTAL_GLYPHS.length) | 0);
+      }
+      paintPortal(s);
+      if (t < 1) requestAnimationFrame(frame);
+      else { paintPortal(target); if (done) done(); }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function typePortalSub(text, ms) {
+    var i = 0;
+    (function step() {
+      portalSub.textContent = text.slice(0, ++i);
+      if (i < text.length) setTimeout(step, ms);
+    })();
+  }
+
+  function openPortal() {
+    if (portalBusy) return;
+    portalBusy = true;
+
+    if (reducedMotion()) {
+      portalEl.hidden = false;
+      paintPortal(PORTAL_TO);
+      setTimeout(function () { location.href = PORTAL_URL; }, 400);
+      return;
+    }
+
+    portalEl.hidden = false;
+    portalEl.className = 'portal';
+    paintPortal(PORTAL_FROM);
+    portalSub.textContent = '';
+    /* read a layout property so the entry animation is not skipped by the
+       hidden -> visible flip landing in the same frame as the class change */
+    void portalEl.offsetWidth;
+    portalEl.classList.add('open');
+
+    /* the name tears itself apart */
+    setTimeout(function () { scramblePortal(portalNoise(6), 210, null); }, 170);
+    /* and resolves as ARCADE, which locks the neon on */
+    setTimeout(function () {
+      scramblePortal(PORTAL_TO, 620, function () { portalEl.classList.add('locked'); });
+    }, 400);
+    /* the address types itself underneath */
+    setTimeout(function () { typePortalSub('jojosarcade.vercel.app', 32); }, 1340);
+    /* neon surge and the CRT refresh bar */
+    setTimeout(function () { portalEl.classList.add('surge'); }, 2080);
+    /* blow out, collapse to a scanline, and go */
+    setTimeout(function () { portalEl.classList.add('blast'); }, 2760);
+    setTimeout(function () { location.href = PORTAL_URL; }, 2960);
+  }
+
   /* -------------------------------------------------------- confetti ---- */
 
   function confetti(el, colour) {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (reducedMotion()) return;
     var r = el.getBoundingClientRect();
     var cx = r.left + r.width / 2;
     var cy = r.top + r.height / 2;

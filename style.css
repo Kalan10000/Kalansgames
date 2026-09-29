@@ -917,10 +917,28 @@ body {
   align-items: baseline;
   justify-content: space-between;
   gap: 6px;
+  width: 100%;
   padding: 6px 8px;
   margin-bottom: 3px;
   background: linear-gradient(90deg, #1d4ed8, #0e7490);
   color: #fff;
+  font: inherit;
+  text-align: left;
+  border: 0;
+  /* This is the arcade door. Nothing about it says "secret", but hovering it
+     has to feel different from hovering a dead label. */
+  cursor: pointer;
+}
+
+.start-head:hover,
+.start-head:focus-visible {
+  background: linear-gradient(90deg, #2563eb, #0891b2);
+  outline: none;
+  box-shadow: inset 0 0 0 2px #22d3ee, 0 0 12px rgba(34, 211, 238, 0.6);
+}
+
+.start-head:active {
+  box-shadow: inset 0 0 0 2px #0b0b12;
 }
 
 .start-head-name {
@@ -1111,6 +1129,284 @@ body {
   font-size: 15px;
   color: #55557a;
   margin-top: 4px;
+}
+
+/* ===================== EASTER EGG: ARCADE PORTAL ===================== */
+/* Deliberately breaks the "no blur" rule of the rest of this sheet: it is a
+   neon arcade sign, and neon without a bloom does not read as neon. Every
+   transition is still steps(), so nothing eases -- the softness is the glow,
+   never the motion. */
+
+.portal {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #05050a;
+  cursor: progress;
+  user-select: none;
+  clip-path: inset(0 50% 0 50%);
+}
+
+/* The shell is wiped away by the portal opening out from the centre line, so
+   the desktop appears to be cut open rather than covered. */
+.portal.open {
+  animation: portal-wipe 380ms steps(10) forwards;
+}
+
+@keyframes portal-wipe {
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* CRT tube border. Cool cyan while the name decodes, hot magenta on the surge. */
+.portal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px #22d3ee, inset 0 0 40px 0 rgba(34, 211, 238, 0.3);
+  opacity: 0;
+}
+
+.portal.open::before {
+  animation: portal-frame 700ms steps(5) forwards;
+}
+
+@keyframes portal-frame {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.portal.surge::before {
+  box-shadow: inset 0 0 0 2px #e879f9, inset 0 0 70px 0 rgba(232, 121, 249, 0.45);
+  animation: portal-frame-hot 620ms steps(4);
+}
+
+@keyframes portal-frame-hot {
+  0% {
+    box-shadow: inset 0 0 0 2px #22d3ee, inset 0 0 40px 0 rgba(34, 211, 238, 0.3);
+  }
+
+  50% {
+    box-shadow: inset 0 0 0 2px #fff, inset 0 0 90px 0 rgba(255, 255, 255, 0.5);
+  }
+
+  100% {
+    box-shadow: inset 0 0 0 2px #e879f9, inset 0 0 70px 0 rgba(232, 121, 249, 0.45);
+  }
+}
+
+/* Three copies of the same word stacked in one grid cell: the cyan and magenta
+   ghosts are the two halves of a chromatic split while it decodes, and they
+   merge back into a single clean glyph once ARCADE locks. */
+.portal-stack {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.portal-word,
+.portal-ghost {
+  grid-area: 1 / 1;
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(24px, 10vw, 112px);
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.portal-word {
+  color: #e9e9f6;
+  text-shadow: 0 0 2px #fff, 0 0 12px #22d3ee, 0 0 30px #22d3ee;
+}
+
+.portal-ghost {
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+
+.portal-ghost-c {
+  --sx: -12px;
+  --sy: 4px;
+  color: #22d3ee;
+}
+
+.portal-ghost-m {
+  --sx: 12px;
+  --sy: -4px;
+  color: #e879f9;
+}
+
+.portal.open:not(.locked) .portal-ghost {
+  opacity: 0.8;
+  animation: portal-split 240ms steps(3) infinite;
+}
+
+/* One keyframe set drives both halves, mirrored by --sx, so they can never
+   drift out of step with each other. */
+@keyframes portal-split {
+  0%,
+  100% {
+    transform: translate(var(--sx), var(--sy));
+  }
+
+  50% {
+    transform: translate(calc(var(--sx) * 0.35), calc(var(--sy) * -1));
+  }
+}
+
+/* The two halves snap back to centre, which is what sells the "resolved" beat. */
+.portal.locked .portal-ghost {
+  animation: portal-merge 320ms steps(4) forwards;
+}
+
+@keyframes portal-merge {
+  to {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+}
+
+/* One long stutter that lands on a steady, wide, fully-on neon. */
+.portal.locked .portal-word {
+  animation: portal-neon 820ms steps(1) forwards;
+}
+
+@keyframes portal-neon {
+  0% {
+    color: #fff;
+    text-shadow: 0 0 2px #fff, 0 0 10px #22d3ee, 0 0 26px #22d3ee;
+  }
+
+  18% {
+    color: #22d3ee;
+    text-shadow: 0 0 2px #fff, 0 0 14px #c084fc, 0 0 34px #c084fc, 0 0 70px #e879f9;
+  }
+
+  34% {
+    color: #e9e9f6;
+    text-shadow: 0 0 2px #fff, 0 0 6px #22d3ee, 0 0 14px #22d3ee;
+  }
+
+  52% {
+    color: #fff;
+    text-shadow: 0 0 2px #fff, 0 0 20px #22d3ee, 0 0 48px #e879f9, 0 0 90px #22d3ee;
+  }
+
+  68% {
+    color: #facc15;
+    text-shadow: 0 0 2px #fff, 0 0 10px #facc15, 0 0 24px #facc15;
+  }
+
+  86% {
+    color: #fff;
+    text-shadow: 0 0 2px #fff, 0 0 16px #22d3ee, 0 0 40px #c084fc, 0 0 80px #c084fc;
+  }
+
+  100% {
+    color: #fff;
+    text-shadow: 0 0 3px #fff, 0 0 18px #22d3ee, 0 0 46px #22d3ee, 0 0 96px #c084fc;
+  }
+}
+
+.portal-sub {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 13%;
+  margin: 0;
+  min-height: 1.5em;
+  text-align: center;
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(10px, 2.4vw, 21px);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #4ade80;
+  text-shadow: 0 0 8px #4ade80, 0 0 22px #15803d;
+}
+
+/* A CRT refresh bar sweeping top to bottom just before the hand-off. */
+.portal-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 26%;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(180deg,
+      transparent 0%,
+      rgba(34, 211, 238, 0.10) 32%,
+      rgba(232, 121, 249, 0.36) 50%,
+      rgba(34, 211, 238, 0.10) 68%,
+      transparent 100%);
+  box-shadow: 0 0 24px 2px rgba(34, 211, 238, 0.45);
+}
+
+.portal.surge .portal-scan {
+  animation: portal-scan 700ms steps(16) forwards;
+}
+
+@keyframes portal-scan {
+  from {
+    top: -30%;
+    opacity: 1;
+  }
+
+  to {
+    top: 108%;
+    opacity: 0;
+  }
+}
+
+/* Hand-off. Everything blows out to white and the portal closes back down to a
+   single scanline, the way a CRT loses signal. */
+.portal.blast::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  pointer-events: none;
+  animation: portal-flash 220ms steps(8) forwards;
+}
+
+@keyframes portal-flash {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+.portal.blast {
+  animation: portal-collapse 520ms steps(16) forwards;
+}
+
+@keyframes portal-collapse {
+  from {
+    clip-path: inset(0 0 0 0);
+  }
+
+  to {
+    clip-path: inset(50% 0 50% 0);
+  }
+}
+
+.portal.blast .portal-word,
+.portal.blast .portal-sub,
+.portal.blast .portal-ghost {
+  animation: none;
+  opacity: 0;
 }
 
 /* ===================== CONFETTI ===================== */
