@@ -1338,10 +1338,11 @@
      and a new tab would leave the illusion behind. */
 
   var PORTAL_URL = 'https://jojosarcade.vercel.app';
+  /* One number, matched by the 1500ms in .portal.fade. The tab leaves as the
+     ramp finishes, so the image is on screen for exactly as long as the fade
+     is long. Keep these two in step -- a mismatch means either a half-faded
+     cut or a fully opaque hold that looks like a stall. */
   var PORTAL_FADE = 1500;
-  /* The ramp is only half the job -- the picture has to sit on screen long
-     enough to actually be looked at before the tab is taken away. */
-  var PORTAL_HOLD = 1400;
   var portalBusy = false;
   var portalTimers = [];
   var portalFailsafe = 0;
@@ -1366,11 +1367,10 @@
     leavePortal();
   }
 
-  /* Put the desktop back exactly as it was. Used on the way out and, more
-     importantly, when the browser restores this page from bfcache: the back
-     button replays the frozen page as it was at navigation time, overlay and
-     all, which otherwise leaves a full-screen image sitting on the desktop
-     with a dead KALAN plate. */
+  /* Put the desktop back exactly as it was. Used when the browser restores
+     this page from bfcache: the back button replays the frozen page as it was
+     at navigation time, overlay and all, which otherwise leaves a
+     full-screen image sitting on the desktop with a dead KALAN plate. */
   function resetPortal() {
     for (var i = 0; i < portalTimers.length; i++) clearTimeout(portalTimers[i]);
     portalTimers.length = 0;
@@ -1400,12 +1400,10 @@
       return;
     }
 
-    portalAfter(PORTAL_FADE, function () {
-      portalAfter(PORTAL_HOLD, leavePortal);
-    });
+    portalAfter(PORTAL_FADE, leavePortal);
     /* Nothing above may be the only route off this page. If the hand-off is
        blocked, drop the overlay and go rather than leaving it stuck. */
-    portalFailsafe = setTimeout(bailPortal, PORTAL_FADE + PORTAL_HOLD + 1500);
+    portalFailsafe = setTimeout(bailPortal, PORTAL_FADE + 1500);
   }
 
   /* arcade.png is the whole transition, so it has to be decoded before the

@@ -1282,3 +1282,14 @@ body {
     transition-duration: 1ms !important;
   }
 }
+
+/* The universal reset above flattens every animation to 1ms, and the arcade
+   handoff is the one place that must not be flattened: arcade.png IS the
+   transition, so a 1ms fade snaps the image to full opacity and the tab
+   leaves without ever showing it. Specificity (0,2,0) beats the universal
+   selector, so this wins even though both declarations are !important. */
+@media (prefers-reduced-motion: reduce) {
+  .portal.fade {
+    animation-duration: 1500ms !important;
+  }
+}
