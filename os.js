@@ -143,6 +143,7 @@
     renderIcons();
     startClock();
     wireShell();
+    preloadPortalImage();
   }
 
   function log(msg) { if (window.console) console.log('[KALAN OS] ' + msg); }
@@ -1029,7 +1030,6 @@
   var startEl = $('#start-menu');
   var startBtn = $('#start-btn');
   var portalEl = $('#portal');
-  var portalCoin = $('#portal-coin');
   var shellWired = false;
   function closeMenus() {
     ctxEl.hidden = true;
@@ -1332,24 +1332,16 @@
   }
 
   /* ----------------------------------------------------------- easter egg */
-  /* The KALAN plate in the Start menu is a door. Clicking it kills the screen
-     the way a cabinet's tube dies, then lights the cabinet's own marquee and
-     hands this very tab over to Jojo's arcade -- location.href rather than
-     window.open, because leaving is the whole point and a new tab would leave
-     the illusion behind. */
+  /* The KALAN plate in the Start menu is a door. Clicking it fades arcade.png
+     up over the desktop, then hands this very tab to the arcade --
+     location.href rather than window.open, because leaving is the whole point
+     and a new tab would leave the illusion behind. */
 
   var PORTAL_URL = 'https://jojosarcade.vercel.app';
-  var PORTAL_FROM = 'KALAN';
-  var PORTAL_TO = 'ARCADE';
-  var PORTAL_COIN = 'INSERER UNE PIECE';
+  var PORTAL_FADE = 1500;
   var portalBusy = false;
   var portalTimers = [];
   var portalFailsafe = 0;
-
-  function portalStep(name) {
-    if (!portalEl) return;
-    portalEl.classList.add(name);
-  }
 
   function portalAfter(ms, fn) {
     portalTimers.push(setTimeout(fn, ms));
@@ -1362,10 +1354,9 @@
     location.href = PORTAL_URL;
   }
 
-  /* Tear the overlay down and hand the tab over. The arc is pure decoration,
-     so if any part of it fails -- a missing node, a stylesheet that never
-     loaded -- the worst case is that you simply land on the arcade without
-     the ceremony. It must never be possible to strand someone staring at a
+  /* Tear the overlay down and hand the tab over. The fade is pure decoration,
+     so if anything about it fails the worst case is landing on the arcade
+     without it. It must never be possible to strand someone staring at a
      stuck overlay, so every failure path funnels through here. */
   function bailPortal() {
     if (portalEl) portalEl.hidden = true;
@@ -1376,38 +1367,35 @@
     if (portalBusy) return;
     portalBusy = true;
 
-    if (reducedMotion()) {
-      if (portalEl) portalEl.hidden = false;
-      setTimeout(leavePortal, 260);
-      return;
-    }
+    var fade = reducedMotion() ? 1 : PORTAL_FADE;
 
     try {
       if (!portalEl) { leavePortal(); return; }
       portalEl.hidden = false;
       portalEl.className = 'portal';
-      if (portalCoin) portalCoin.textContent = PORTAL_COIN;
-
-      /* the tube holds the lit picture for a beat, then collapses to a line */
-      portalStep('tube-off');
-      /* the room thickens to opaque as the picture goes */
-      portalAfter(170, function () { portalStep('dark'); });
-      /* the line flares and dies */
-      portalAfter(380, function () { portalStep('tube-dead'); });
-      /* and only now the cabinet's marquee strikes up out of the dark */
-      portalAfter(560, function () { portalStep('sign-on'); });
-      /* the coin is taken, the sign browns out, and the tab changes hands */
-      portalAfter(1180, function () { portalStep('cut'); });
-      portalAfter(1440, leavePortal);
+      /* read a layout property so the fade is not skipped by the
+         hidden -> visible flip landing in the same frame as the class change */
+      void portalEl.offsetWidth;
+      portalEl.classList.add('fade');
     } catch (e) {
       bailPortal();
       return;
     }
 
-    /* Nothing above can be allowed to be the only route off this page. If the
-       hand-off is blocked or the tab is restored from bfcache, drop the
-       overlay and go again rather than leaving a full-screen panel up. */
-    portalFailsafe = setTimeout(bailPortal, 3000);
+    portalAfter(fade, leavePortal);
+    /* Nothing above may be the only route off this page. If the hand-off is
+       blocked or the tab comes back from bfcache, drop the overlay and go
+       again rather than leaving a full-screen panel up. */
+    portalFailsafe = setTimeout(bailPortal, fade + 1500);
+  }
+
+  /* arcade.png is the whole transition, so it has to be decoded before the
+     fade starts -- otherwise the overlay sits on an empty background while the
+     download lands and the ramp begins from nothing. Loaded on boot rather
+     than on click, so the click itself costs nothing. */
+  function preloadPortalImage() {
+    var img = new Image();
+    img.src = 'arcade.png';
   }
 
   /* -------------------------------------------------------- confetti ---- */
