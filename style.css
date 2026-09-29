@@ -1169,11 +1169,12 @@ body {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .portal.fade {
-    animation-duration: 1ms;
-  }
-}
+/* Deliberately NOT shortened under prefers-reduced-motion. A cross-fade does
+   not move anything across the screen, so it is not the kind of motion that
+   setting exists to suppress -- and the image is the whole point of the click.
+   It was reduced to 1ms before, which made the overlay snap to full opacity
+   and the hand-off fire instantly, so the picture was never actually seen. */
+
 /* ===================== CONFETTI ===================== */
 .confetti {
   position: fixed;

@@ -1339,6 +1339,9 @@
 
   var PORTAL_URL = 'https://jojosarcade.vercel.app';
   var PORTAL_FADE = 1500;
+  /* The ramp is only half the job -- the picture has to sit on screen long
+     enough to actually be looked at before the tab is taken away. */
+  var PORTAL_HOLD = 1400;
   var portalBusy = false;
   var portalTimers = [];
   var portalFailsafe = 0;
@@ -1363,11 +1366,26 @@
     leavePortal();
   }
 
+  /* Put the desktop back exactly as it was. Used on the way out and, more
+     importantly, when the browser restores this page from bfcache: the back
+     button replays the frozen page as it was at navigation time, overlay and
+     all, which otherwise leaves a full-screen image sitting on the desktop
+     with a dead KALAN plate. */
+  function resetPortal() {
+    for (var i = 0; i < portalTimers.length; i++) clearTimeout(portalTimers[i]);
+    portalTimers.length = 0;
+    clearTimeout(portalFailsafe);
+    portalFailsafe = 0;
+    portalBusy = false;
+    if (portalEl) {
+      portalEl.classList.remove('fade');
+      portalEl.hidden = true;
+    }
+  }
+
   function openPortal() {
     if (portalBusy) return;
     portalBusy = true;
-
-    var fade = reducedMotion() ? 1 : PORTAL_FADE;
 
     try {
       if (!portalEl) { leavePortal(); return; }
@@ -1382,11 +1400,12 @@
       return;
     }
 
-    portalAfter(fade, leavePortal);
+    portalAfter(PORTAL_FADE, function () {
+      portalAfter(PORTAL_HOLD, leavePortal);
+    });
     /* Nothing above may be the only route off this page. If the hand-off is
-       blocked or the tab comes back from bfcache, drop the overlay and go
-       again rather than leaving a full-screen panel up. */
-    portalFailsafe = setTimeout(bailPortal, fade + 1500);
+       blocked, drop the overlay and go rather than leaving it stuck. */
+    portalFailsafe = setTimeout(bailPortal, PORTAL_FADE + PORTAL_HOLD + 1500);
   }
 
   /* arcade.png is the whole transition, so it has to be decoded before the
@@ -1397,6 +1416,16 @@
     var img = new Image();
     img.src = 'arcade.png';
   }
+
+  /* Back from the arcade, and the frozen overlay is still up. Undo it. */
+  window.addEventListener('pageshow', function (e) {
+    if (e.persisted) resetPortal();
+  });
+  /* Leaving for the arcade: stop the clock so a frozen page cannot fire a
+     navigation on its way out of bfcache. */
+  window.addEventListener('pagehide', function (e) {
+    if (e.persisted) resetPortal();
+  });
 
   /* -------------------------------------------------------- confetti ---- */
 
