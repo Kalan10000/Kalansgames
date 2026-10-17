@@ -44,7 +44,10 @@
 html,
 body {
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: none;
   background: var(--ink);
   color: var(--face);
   font-family: 'VT323', 'Courier New', monospace;
@@ -153,7 +156,8 @@ body {
 .desktop {
   position: fixed;
   inset: 0;
-  padding-bottom: var(--bar);
+  height: 100dvh;
+  padding-bottom: calc(var(--bar) + env(safe-area-inset-bottom, 0));
   isolation: isolate;
 }
 
@@ -217,7 +221,7 @@ body {
    to subtract the taskbar height themselves or they slide underneath it. */
 .icons {
   position: absolute;
-  inset: 12px 12px calc(var(--bar) + 12px) 12px;
+  inset: 12px 12px calc(var(--bar) + 12px + env(safe-area-inset-bottom, 0)) 12px;
   display: grid;
   grid-auto-flow: column;
   grid-template-rows: repeat(6, minmax(0, 1fr));
@@ -632,6 +636,7 @@ body {
 
 .px-btn {
   font: inherit;
+  touch-action: manipulation;
   font-size: 17px;
   padding: 4px 12px;
   background: var(--face);
@@ -772,8 +777,9 @@ body {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: env(safe-area-inset-bottom, 0);
   height: var(--bar);
+  padding-bottom: 3px;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -786,6 +792,7 @@ body {
 
 .start-btn {
   display: flex;
+  touch-action: manipulation;
   align-items: center;
   gap: 6px;
   height: 26px;
@@ -835,6 +842,7 @@ body {
 
 .task-btn {
   display: flex;
+  touch-action: manipulation;
   align-items: center;
   gap: 5px;
   min-width: 0;
@@ -961,6 +969,7 @@ body {
 
 .menu-item {
   display: flex;
+  touch-action: manipulation;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -1195,26 +1204,31 @@ body {
 /* ===================== MOBILE ===================== */
 @media (max-width: 720px) {
   :root {
-    --bar: 40px;
+    --bar: 48px;
   }
 
   .icons {
     grid-auto-flow: row;
     grid-template-rows: none;
-    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
-    justify-content: stretch;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    justify-content: center;
     align-content: start;
     gap: 12px;
-    inset: 8px 8px calc(var(--bar) + 8px);
+    inset: 8px 8px calc(var(--bar) + 8px + env(safe-area-inset-bottom, 0));
   }
 
+  /* Square, centred icon boxes. A full-width icon was a wide rectangle whose
+     hit box ran the whole grid cell, so grabbing one also covered its
+     neighbours left and right. A fixed square keeps each hit box to itself.
+     touch-action stays none (inherited from the base rule) or the browser
+     steals the drag as a pan gesture and pointercancel kills it. */
   .dicon {
-    width: 100%;
-    /* min-height, not height: a fixed 88px clipped the longer game titles
-       once the 40px art was added on top of a 3-line label. */
-    height: auto;
-    min-height: 88px;
+    width: 96px;
+    height: 96px;
+    min-height: 0;
+    justify-self: center;
     font-size: 15px;
+    padding: 8px 4px;
   }
 
   .dicon .art {
@@ -1236,7 +1250,8 @@ body {
   }
 
   .task-btn {
-    max-width: 96px;
+    max-width: 120px;
+    min-height: 36px;
   }
 
   .wb.max {
@@ -1246,24 +1261,24 @@ body {
   /* Fingers need a wider target than a mouse does. */
   .win-grip[data-dir="n"],
   .win-grip[data-dir="s"] {
-    left: 20px;
-    right: 20px;
-    height: 12px;
+    left: 24px;
+    right: 24px;
+    height: 16px;
   }
 
   .win-grip[data-dir="w"],
   .win-grip[data-dir="e"] {
-    top: 20px;
-    bottom: 20px;
-    width: 12px;
+    top: 24px;
+    bottom: 24px;
+    width: 16px;
   }
 
   .win-grip[data-dir="se"],
   .win-grip[data-dir="ne"],
   .win-grip[data-dir="nw"],
   .win-grip[data-dir="sw"] {
-    width: 22px;
-    height: 22px;
+    width: 28px;
+    height: 28px;
   }
 }
 

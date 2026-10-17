@@ -3,10 +3,12 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="description"
     content="KALAN OS 5.1 - a pixel-art desktop launcher for a small library of browser games.">
   <meta name="theme-color" content="#0d0d16">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>KALAN OS 5.1</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -62,7 +64,10 @@
 html,
 body {
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: none;
   background: var(--ink);
   color: var(--face);
   font-family: 'VT323', 'Courier New', monospace;
@@ -171,7 +176,8 @@ body {
 .desktop {
   position: fixed;
   inset: 0;
-  padding-bottom: var(--bar);
+  height: 100dvh;
+  padding-bottom: calc(var(--bar) + env(safe-area-inset-bottom, 0));
   isolation: isolate;
 }
 
@@ -772,7 +778,7 @@ body {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: env(safe-area-inset-bottom, 0);
   height: var(--bar);
   display: flex;
   align-items: center;
@@ -1100,26 +1106,26 @@ body {
 /* ===================== MOBILE ===================== */
 @media (max-width: 720px) {
   :root {
-    --bar: 40px;
+    --bar: 48px;
   }
 
   .icons {
     grid-auto-flow: row;
     grid-template-rows: none;
-    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
-    justify-content: stretch;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    justify-content: center;
     align-content: start;
     gap: 12px;
-    inset: 8px 8px calc(var(--bar) + 8px);
+    inset: 8px 8px calc(var(--bar) + 8px + env(safe-area-inset-bottom, 0));
   }
 
   .dicon {
-    width: 100%;
-    /* min-height, not height: a fixed 88px clipped the longer game titles
-       once the 40px art was added on top of a 3-line label. */
-    height: auto;
-    min-height: 88px;
+    width: 96px;
+    height: 96px;
+    min-height: 0;
+    justify-self: center;
     font-size: 15px;
+    padding: 8px 4px;
   }
 
   .dicon .art {
@@ -1141,7 +1147,8 @@ body {
   }
 
   .task-btn {
-    max-width: 96px;
+    max-width: 120px;
+    min-height: 36px;
   }
 
   .wb.max {
@@ -1987,7 +1994,17 @@ window.GAMES = [
   var cascade = 0;
 
   function layerBox() {
-    return { w: layer.clientWidth, h: layer.clientHeight };
+    var w = layer.clientWidth;
+    var h = layer.clientHeight;
+    try {
+      if (window.visualViewport) {
+        var barH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--bar')) || 0;
+        w = Math.round(window.visualViewport.width);
+        h = Math.round(window.visualViewport.height - barH);
+        if (h <= 0) h = window.visualViewport.height;
+      }
+    } catch (e) {}
+    return { w: w, h: h };
   }
 
   function openGame(id) {
@@ -2659,16 +2676,23 @@ window.GAMES = [
     });
 
     window.addEventListener('resize', function () {
-      /* every window, not just the maximised ones: an ordinary window left
-         half off-screen by a shrinking browser is otherwise unreachable */
       windows.forEach(function (win) { fitWinToLayer(win); });
-      /* a smaller window can strand a dragged icon outside the icon area */
       iconBtns.forEach(function (el) {
         if (!el.classList.contains('placed')) return;
         parkIcon(el, parseFloat(el.style.left) || 0, parseFloat(el.style.top) || 0);
         rememberIcon(el);
       });
     });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', function () {
+        windows.forEach(function (win) { fitWinToLayer(win); });
+        iconBtns.forEach(function (el) {
+          if (!el.classList.contains('placed')) return;
+          parkIcon(el, parseFloat(el.style.left) || 0, parseFloat(el.style.top) || 0);
+          rememberIcon(el);
+        });
+      });
+    }
   }
 
   /* -------------------------------------------------------- confetti ---- */

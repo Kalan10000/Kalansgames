@@ -577,7 +577,17 @@
   var cascade = 0;
 
   function layerBox() {
-    return { w: layer.clientWidth, h: layer.clientHeight };
+    var w = layer.clientWidth;
+    var h = layer.clientHeight;
+    try {
+      if (window.visualViewport) {
+        var barH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--bar')) || 0;
+        w = Math.round(window.visualViewport.width);
+        h = Math.round(window.visualViewport.height - barH);
+        if (h <= 0) h = window.visualViewport.height;
+      }
+    } catch (e) {}
+    return { w: w, h: h };
   }
 
   function openGame(id) {
@@ -1319,16 +1329,23 @@
     });
 
     window.addEventListener('resize', function () {
-      /* every window, not just the maximised ones: an ordinary window left
-         half off-screen by a shrinking browser is otherwise unreachable */
       windows.forEach(function (win) { fitWinToLayer(win); });
-      /* a smaller window can strand a dragged icon outside the icon area */
       iconBtns.forEach(function (el) {
         if (!el.classList.contains('placed')) return;
         parkIcon(el, parseFloat(el.style.left) || 0, parseFloat(el.style.top) || 0);
         rememberIcon(el);
       });
     });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', function () {
+        windows.forEach(function (win) { fitWinToLayer(win); });
+        iconBtns.forEach(function (el) {
+          if (!el.classList.contains('placed')) return;
+          parkIcon(el, parseFloat(el.style.left) || 0, parseFloat(el.style.top) || 0);
+          rememberIcon(el);
+        });
+      });
+    }
   }
 
   /* ----------------------------------------------------------- easter egg */
