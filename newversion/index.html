@@ -1,0 +1,4419 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KALAN OS — Game Cartridge Hub</title>
+    <meta name="description" content="A retro NES cartridge shelf and console game launcher hub for KALAN OS." />
+    <meta property="og:title" content="KALAN OS — Game Cartridge Hub" />
+    <meta property="og:description" content="A retro NES cartridge shelf and console game launcher hub for KALAN OS." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Press+Start+2P&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg-wall-deep: #14100e;
+        --bg-wall-warm: #1e1815;
+        --text-primary: #f4f1ed;
+        --text-muted: #b6aca4;
+        --text-dim: #847971;
+        --surface-bar: #191412;
+        --surface-dock: rgba(22, 18, 16, 0.94);
+        --border-subtle: rgba(255, 238, 220, 0.12);
+        --nes-red: #ef4444;
+        --nes-green: #4ade80;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background-color: var(--bg-wall-deep);
+        color: var(--text-primary);
+        font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        background-image:
+          radial-gradient(circle at 14px 14px, rgba(6, 4, 3, 0.68) 2.5px, rgba(255, 232, 205, 0.04) 3.2px, transparent 3.8px),
+          radial-gradient(ellipse 90% 65% at 50% 15%, #2a201b 0%, var(--bg-wall-warm) 55%, var(--bg-wall-deep) 100%);
+        background-size: 28px 28px, 100% 100%;
+      }
+
+      /* Top Header (No backdrop-filter over WebGL to keep software WebGL fast) */
+      .os-header {
+        position: relative;
+        z-index: 30;
+        background: var(--surface-bar);
+        border-bottom: 1px solid var(--border-subtle);
+        flex-shrink: 0;
+      }
+
+      .os-header-inner {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 10px 22px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+      }
+
+      .brand-title {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 15px;
+        letter-spacing: 0.06em;
+        color: var(--text-primary);
+        text-decoration: none;
+        white-space: nowrap;
+        flex-shrink: 0;
+        text-shadow: 0 2px 0 #000;
+      }
+
+      .search-wrap {
+        position: relative;
+        flex: 1 1 260px;
+        max-width: 340px;
+        display: flex;
+        align-items: center;
+      }
+
+      .search-icon {
+        position: absolute;
+        left: 11px;
+        width: 14px;
+        height: 14px;
+        color: var(--text-dim);
+        pointer-events: none;
+      }
+
+      .search-input {
+        width: 100%;
+        height: 35px;
+        padding: 0 32px 0 34px;
+        background: #0f0c0b;
+        border: 1px solid rgba(255, 238, 220, 0.16);
+        border-radius: 6px;
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 13.5px;
+        transition: border-color 140ms ease;
+      }
+
+      .search-input::placeholder {
+        color: var(--text-dim);
+      }
+
+      .search-input:focus {
+        outline: none;
+        border-color: #decab8;
+        box-shadow: 0 0 0 2px rgba(244, 241, 237, 0.14);
+      }
+
+      .search-input::-webkit-search-cancel-button {
+        -webkit-appearance: none;
+        appearance: none;
+      }
+
+      .search-clear {
+        position: absolute;
+        right: 5px;
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 16px;
+        line-height: 1;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .search-clear:hover {
+        color: var(--text-primary);
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .search-clear[hidden] {
+        display: none;
+      }
+
+      .shelf-count {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text-muted);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      /* Category Filter Toolbar */
+      .filter-section {
+        position: relative;
+        z-index: 28;
+        background: rgba(20, 16, 14, 0.92);
+        border-bottom: 1px solid rgba(255, 238, 220, 0.08);
+        flex-shrink: 0;
+      }
+
+      .filter-section-inner {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 7px 22px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+      }
+
+      .filter-bar {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+
+      .filter-btn {
+        appearance: none;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--text-muted);
+        font-family: 'DM Sans', system-ui, sans-serif;
+        font-size: 12.5px;
+        font-weight: 600;
+        padding: 5px 11px;
+        min-height: 30px;
+        border-radius: 5px;
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
+        transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+      }
+
+      .filter-btn:hover {
+        color: var(--text-primary);
+        background: rgba(255, 245, 235, 0.06);
+      }
+
+      .filter-btn:focus-visible {
+        outline: 2px solid #facc15;
+        outline-offset: 2px;
+      }
+
+      .filter-btn[aria-pressed='true'] {
+        background: #332924;
+        color: var(--text-primary);
+        border-color: rgba(255, 235, 215, 0.24);
+      }
+
+      .shelf-hint {
+        font-size: 12px;
+        color: var(--text-dim);
+        margin: 0;
+        white-space: nowrap;
+      }
+
+      /* 3D Viewport Stage */
+      .stage-main {
+        position: relative;
+        flex: 1 1 auto;
+        width: 100%;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      #webgl-mount {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+      }
+
+      #webgl-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      /* Projected Accessible Hit-Targets over 3D Cartridges */
+      .hit-layer {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      .cartridge-hit {
+        position: absolute;
+        appearance: none;
+        background: transparent;
+        border: none;
+        padding: 0;
+        margin: 0;
+        cursor: grab;
+        pointer-events: auto;
+        border-radius: 6px;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      .cartridge-hit:active {
+        cursor: grabbing;
+      }
+
+      body.is-dragging-cartridge,
+      body.is-dragging-cartridge * {
+        cursor: grabbing !important;
+        user-select: none !important;
+      }
+
+      body.is-dragging-cartridge .cartridge-hit {
+        pointer-events: none;
+      }
+
+      body.is-dragging-cartridge .cart-tooltip {
+        opacity: 0 !important;
+      }
+
+      body.is-dragging-cartridge .ctrl-btn-hit {
+        pointer-events: none;
+      }
+
+      .cartridge-hit:focus-visible {
+        outline: 2px solid #facc15;
+        outline-offset: 3px;
+        background: rgba(250, 204, 21, 0.06);
+      }
+
+      .cartridge-hit.is-slotted {
+        pointer-events: none;
+        cursor: default;
+      }
+
+      .console-drop-probe {
+        position: absolute;
+        pointer-events: none;
+        opacity: 0;
+      }
+
+      /* Projected Accessible Buttons over 3D NES Controller Left (B) & Right (A) Red Buttons */
+      .ctrl-hit-layer {
+        position: absolute;
+        inset: 0;
+        z-index: 12;
+        pointer-events: none;
+      }
+
+      .ctrl-btn-hit {
+        appearance: none;
+        background: transparent;
+        border: none;
+        padding: 0;
+        margin: 0;
+        position: absolute;
+        display: block;
+        pointer-events: auto;
+        cursor: pointer;
+        border-radius: 8px;
+      }
+
+      .ctrl-btn-hit:focus-visible {
+        outline: 2px solid #facc15;
+        outline-offset: 3px;
+        background: rgba(250, 204, 21, 0.14);
+      }
+
+      /* Hover / Focus Blurb Tooltip anchored to projected 3D Cartridge */
+      .cart-tooltip {
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 8px);
+        transform: translate3d(-50%, 6px, 0);
+        width: max-content;
+        max-width: 236px;
+        padding: 8px 11px;
+        background: #100d13;
+        color: #f5f2ef;
+        border: 1px solid rgba(255, 240, 225, 0.26);
+        border-radius: 6px;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.78);
+        font-family: 'DM Sans', system-ui, sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.42;
+        text-align: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 140ms ease, transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
+        z-index: 35;
+      }
+
+      /* Flip tooltip below top-row cartridges if close to top edge */
+      .cartridge-hit.tooltip-below .cart-tooltip {
+        bottom: auto;
+        top: calc(100% + 8px);
+        transform: translate3d(-50%, -6px, 0);
+      }
+
+      .cart-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-top: 6px solid #100d13;
+      }
+
+      .cartridge-hit.tooltip-below .cart-tooltip::after {
+        top: auto;
+        bottom: 100%;
+        border-top: none;
+        border-bottom: 6px solid #100d13;
+      }
+
+      .cartridge-hit:not(.is-slotted):hover .cart-tooltip,
+      .cartridge-hit:not(.is-slotted):focus-visible .cart-tooltip {
+        opacity: 1;
+        transform: translate3d(-50%, 0, 0);
+      }
+
+      .cart-tooltip-tag {
+        display: block;
+        font-family: 'Press Start 2P', monospace;
+        font-size: 7px;
+        letter-spacing: 0.05em;
+        margin-bottom: 5px;
+        color: var(--tip-accent, #facc15);
+        text-transform: uppercase;
+      }
+
+      /* Empty Search/Filter Overlay */
+      .empty-shelf {
+        position: absolute;
+        top: 38%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 20;
+        padding: 36px 28px;
+        text-align: center;
+        background: #171311;
+        border: 1px solid var(--border-subtle);
+        border-radius: 10px;
+        width: min(440px, 90vw);
+        box-shadow: 0 20px 44px rgba(0, 0, 0, 0.72);
+      }
+
+      .empty-shelf[hidden] {
+        display: none;
+      }
+
+      .empty-shelf-title {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 12px;
+        color: var(--text-primary);
+        margin: 0 0 12px;
+        line-height: 1.6;
+      }
+
+      .empty-shelf-copy {
+        font-size: 13.5px;
+        color: var(--text-muted);
+        margin: 0 0 18px;
+      }
+
+      .reset-filter-btn {
+        appearance: none;
+        border: 1px solid rgba(255, 235, 215, 0.25);
+        background: #332924;
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+
+      .reset-filter-btn:hover {
+        background: #443730;
+      }
+
+      /* Compact Bottom Console Status & Hardware Control Bar */
+      .console-hud {
+        position: relative;
+        z-index: 25;
+        background: var(--surface-dock);
+        border-top: 1px solid rgba(255, 238, 220, 0.14);
+        flex-shrink: 0;
+      }
+
+      .console-hud-inner {
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: 8px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+      }
+
+      .power-cluster {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        min-width: 0;
+      }
+
+      .power-led {
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+        background: #272833;
+        border: 1px solid #14151c;
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+        flex-shrink: 0;
+        transition: background-color 120ms ease, box-shadow 120ms ease;
+      }
+
+      .power-led[data-led='red'] {
+        background: var(--nes-red);
+        box-shadow: 0 0 10px rgba(239, 68, 68, 0.9), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+      }
+
+      .power-led[data-led='green'] {
+        background: var(--nes-green);
+        box-shadow: 0 0 10px rgba(74, 222, 128, 0.9), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+      }
+
+      .console-readout {
+        font-size: 13px;
+        font-weight: 600;
+        color: #ebe8e4;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .deck-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+
+      .launch-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #f4f4f8;
+        background: #2b2d3b;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        padding: 7px 12px;
+        min-height: 34px;
+        border-radius: 5px;
+        text-decoration: none;
+        white-space: nowrap;
+        transition: background-color 140ms ease;
+      }
+
+      .launch-link:hover {
+        background: #393c4f;
+      }
+
+      .launch-link[hidden] {
+        display: none;
+      }
+
+      .eject-btn {
+        appearance: none;
+        font-family: 'Press Start 2P', monospace;
+        font-size: 9px;
+        letter-spacing: 0.05em;
+        padding: 8px 14px;
+        min-height: 34px;
+        border-radius: 4px;
+        border: 1px solid #20212b;
+        background: linear-gradient(180deg, #dadbe4 0%, #aeb0be 100%);
+        color: #191a24;
+        box-shadow: inset 0 1px 0 #ffffff, 0 2px 0 #181922;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: transform 100ms ease, opacity 140ms ease;
+      }
+
+      .eject-btn:hover:not(:disabled) {
+        background: linear-gradient(180deg, #eaebf2 0%, #bebfd0 100%);
+      }
+
+      .eject-btn:active:not(:disabled) {
+        transform: translateY(1px);
+      }
+
+      .eject-btn:focus-visible {
+        outline: 2px solid #facc15;
+        outline-offset: 2px;
+      }
+
+      .eject-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      @media (max-width: 820px) {
+        .os-header-inner {
+          flex-wrap: wrap;
+          gap: 8px;
+          padding: 9px 14px;
+        }
+
+        .search-wrap {
+          order: 3;
+          flex: 1 1 100%;
+          max-width: none;
+        }
+
+        .filter-section-inner {
+          padding: 6px 14px;
+        }
+
+        .filter-btn {
+          font-size: 11.5px;
+          padding: 4px 9px;
+          min-height: 27px;
+        }
+
+        .shelf-hint {
+          display: none;
+        }
+
+        .console-hud-inner {
+          padding: 7px 12px;
+          gap: 8px;
+        }
+
+        .console-readout {
+          font-size: 12px;
+        }
+
+        .eject-btn {
+          font-size: 8px;
+          padding: 7px 11px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="os-header">
+      <div class="os-header-inner">
+        <a href="#shelf" class="brand-title">KALAN OS</a>
+
+        <div class="search-wrap">
+          <label for="game-search" class="sr-only">Search cartridges by title</label>
+          <svg class="search-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <circle cx="8.5" cy="8.5" r="5.75" stroke="currentColor" stroke-width="1.8" />
+            <path d="M13 13L17 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          </svg>
+          <input
+            id="game-search"
+            class="search-input"
+            type="search"
+            placeholder="Search cartridges by title..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button
+            id="search-clear"
+            class="search-clear"
+            type="button"
+            aria-label="Clear search"
+            hidden
+          >
+            &times;
+          </button>
+        </div>
+
+        <span id="shelf-count" class="shelf-count" aria-live="polite">14 Cartridges</span>
+      </div>
+    </header>
+
+    <section class="filter-section" aria-label="Game categories">
+      <div class="filter-section-inner">
+        <div id="category-bar" class="filter-bar" role="toolbar" aria-label="Filter by category"></div>
+        <p class="shelf-hint">Click or drag any cartridge to the console to play</p>
+      </div>
+    </section>
+
+    <main id="shelf" class="stage-main">
+      <div id="webgl-mount">
+        <canvas id="webgl-canvas" aria-hidden="true"></canvas>
+      </div>
+
+      <div id="hit-layer" class="hit-layer" role="list" aria-label="Game cartridges on shelf"></div>
+      <div class="ctrl-hit-layer" aria-label="NES Controller Buttons">
+        <button
+          id="ctrl-left-btn"
+          class="ctrl-btn-hit"
+          type="button"
+          aria-label="Controller Left Button"
+        ></button>
+        <button
+          id="ctrl-right-btn"
+          class="ctrl-btn-hit"
+          type="button"
+          aria-label="Controller Right Button"
+        ></button>
+      </div>
+      <div id="console-drop-probe" class="console-drop-probe" data-testid="console-slot" aria-hidden="true"></div>
+
+      <div id="empty-shelf" class="empty-shelf" hidden>
+        <h2 class="empty-shelf-title">NO CARTRIDGES FOUND</h2>
+        <p class="empty-shelf-copy">No games on the 3D shelf match your current filter or title search.</p>
+        <button id="reset-filters" class="reset-filter-btn" type="button">Show All Cartridges</button>
+      </div>
+    </main>
+
+    <footer class="console-hud" aria-label="KALAN OS NES Console Controls">
+      <div class="console-hud-inner">
+        <div class="power-cluster">
+          <span
+            id="power-led"
+            class="power-led"
+            data-led="off"
+            role="status"
+            aria-label="Power LED off"
+          ></span>
+          <span id="console-readout" class="console-readout" aria-live="polite">
+            Console Ready · Click or drag a cartridge to the slot
+          </span>
+        </div>
+
+        <div class="deck-actions">
+          <a
+            id="launch-link"
+            class="launch-link"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            hidden
+          >
+            <span>Open Game</span>
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path
+                d="M3.5 2.5H9.5V8.5M9.2 2.8L2.5 9.5"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </a>
+          <button id="eject-btn" class="eject-btn" type="button" disabled>Eject</button>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      const PALETTE = {
+        '0': '#0d0d16', '1': '#f2f2f7', '2': '#b8b8c8', '3': '#6b6b85', '4': '#2a2a3d',
+        'r': '#ef4444', 'R': '#991b1b', 'o': '#fb923c', 'y': '#facc15', 'Y': '#a16207',
+        'g': '#4ade80', 'G': '#15803d', 'c': '#22d3ee', 'C': '#0e7490', 'b': '#60a5fa',
+        'B': '#1d4ed8', 'p': '#c084fc', 'P': '#7e22ce', 'm': '#b45309', 'M': '#78350f',
+        's': '#94a3b8'
+      };
+
+      const GAMES = [
+        {
+          id: 'puzzle-time-attack',
+          title: 'Puzzle Time Attack',
+          blurb: 'Race the clock through escalating brain teasers.',
+          category: 'Puzzle',
+          accent: '#facc15',
+          url: 'https://puzzle-time-attack.vercel.app',
+          sprite: [
+            '......0000......',
+            '.....0yyyy0..00.',
+            '......0YY0..0rr0',
+            '....000yy000.00.',
+            '...0yyy11yyy0...',
+            '..0yy110011yy0..',
+            '.0yy11101111yy0.',
+            '.0y1111011111y0.',
+            '.0y10110rrr10y0.',
+            '.0y1111111111y0.',
+            '.0YY11111111YY0.',
+            '..0YY110011YY0..',
+            '...0YYY11YYY0...',
+            '....00YYYY00....',
+            '......0000......',
+            '................'
+          ]
+        },
+        {
+          id: 'conways-climber',
+          title: 'Conway’s Climber',
+          blurb: 'A colony of cells climbing the grid, one generation at a time.',
+          category: 'Simulation',
+          accent: '#4ade80',
+          url: 'https://conways-climber.vercel.app',
+          sprite: [
+            '.4.4.4.4.4.4.4..',
+            '4.4.4.000.4.4.4.',
+            '.4.4.0ggg0.000..',
+            '4.4..0g1g00ggg0.',
+            '.4.00000000g1g0.',
+            '4.0ggg0.4.00000.',
+            '.40g1g04.4.000..',
+            '4.00000.000GGG0.',
+            '.4.4.4.0gggGGG0.',
+            '4.000..0gg1000..',
+            '.0ggg0.0000.4.4.',
+            '40gGg00GGG04.4..',
+            '.000000GGG0.000.',
+            '4.0GGG0000.0GGG0',
+            '.40GGG0.4..0GGG0',
+            '..00000....00000'
+          ]
+        },
+        {
+          id: 'neon-fall',
+          title: 'Neon Fall',
+          blurb: 'Blocks fall fast. Stack them, clear the lines, survive.',
+          category: 'Arcade',
+          accent: '#22d3ee',
+          url: 'https://neon-fall.vercel.app',
+          sprite: [
+            '......c..c......',
+            '....c.c..c......',
+            '.....000000.....',
+            '.....0cccc0.....',
+            '...000cc1c000...',
+            '...0cccccccc0...',
+            '...0000000000...',
+            '.4............4.',
+            '.4........00004.',
+            '.40000....0oo04.',
+            '.40pp0....0oo04.',
+            '.40pp000000oo04.',
+            '.40pppp1yyroo04.',
+            '.40rrgyyyyrrr04.',
+            '.40rrggbbbrrr04.',
+            '.44444444444444.'
+          ]
+        },
+        {
+          id: 'simple-sandbox',
+          title: 'Simple Sandbox',
+          blurb: 'A tidy physics box. Spawn, drop, break everything.',
+          category: 'Sandbox',
+          accent: '#fb923c',
+          url: 'https://simple-sandbox.vercel.app',
+          sprite: [
+            '.....0000.......',
+            '....0rrrr0..000.',
+            '....0r1rr0.0bb10',
+            '.....0000..0bbb0',
+            '..y.........000.',
+            '...o..0000......',
+            '......0oo0..y...',
+            '.00...0oo0...00.',
+            '.0m0..0000..0m0.',
+            '.0m0..yyyy..0m0.',
+            '.0m0.yyyyyy.0m0.',
+            '.0m0yyyyyyyy0m0.',
+            '.0m0YYYYYYYY0m0.',
+            '.0mmmmmmmmmmmm0.',
+            '.0MMMMMMMMMMMM0.',
+            '..000000000000..'
+          ]
+        },
+        {
+          id: 'kalans-coding-language',
+          title: 'Kalan’s Coding Language',
+          blurb: 'A tiny programming language you can actually write and run.',
+          category: 'Tool',
+          accent: '#c084fc',
+          url: 'https://kcl-two.vercel.app',
+          sprite: [
+            '.00000000000000.',
+            '0222222222222220',
+            '0200000000000020',
+            '0204444444444020',
+            '0204p0.......020',
+            '0204.p0......020',
+            '0204p0.ggg...020',
+            '0204........4020',
+            '0204cc.pppp.4020',
+            '0204..yyyy..4020',
+            '0204444444444020',
+            '0200000000000020',
+            '02222222222g2220',
+            '.00000333300000.',
+            '....02222220....',
+            '...0000000000...'
+          ]
+        },
+        {
+          id: 'squishy-ball-runner',
+          title: 'Squishy Ball Runner',
+          blurb: 'A bouncy ball with places to be. Mostly past them.',
+          category: 'Arcade',
+          accent: '#ef4444',
+          url: 'https://squishy-ball-runner.vercel.app',
+          sprite: [
+            '................',
+            '.....000000.....',
+            '...00rrrrrr00...',
+            '..0rr11rrrrrr0..',
+            '.0rr11rrrrrrrr0.',
+            '.0rrrr0rr0rrrr0.',
+            '.0rrrr0rr0rrrr0.',
+            '..0RRRRRRRRRR0..',
+            '...00RRRRRR00...',
+            '..o..000000.....',
+            '.o.........00...',
+            '..o.......0ss0..',
+            '.........0s33s0.',
+            '0000000000000000',
+            '3322332233223322',
+            '4444444444444444'
+          ]
+        },
+        {
+          id: 'minecrafts-textures',
+          title: 'Minecraft’s Textures',
+          blurb: 'Browse the whole block texture library, block by block.',
+          category: 'Viewer',
+          accent: '#4ade80',
+          url: 'https://mc-textures.vercel.app',
+          sprite: [
+            '0000000000000000',
+            '0ggGgggGggggGgg0',
+            '0gGgggGggGggggG0',
+            '0GGGGgGGGggGGGG0',
+            '0GGmGGGGGGmGGmG0',
+            '0mGmmGmGGmmmGmm0',
+            '0mmmmmmmmMmMmmm0',
+            '0mMmm3mmmmmMmmm0',
+            '0mmMmmmmMmmmmMm0',
+            '0mmmmMmmmm3mmmm0',
+            '0MmmmmmmMmmmmMm0',
+            '0mm3mmMmmmmMmmm0',
+            '0mmmmmmmmMmmm3m0',
+            '0mMmmmMmmmmMmmm0',
+            '0MMMMmMMMmmMMMM0',
+            '0000000000000000'
+          ]
+        },
+        {
+          id: 'kalans-plane',
+          title: 'Kalan’s Plane',
+          blurb: 'A little plane over open country and a lot of sky.',
+          category: 'Arcade',
+          accent: '#60a5fa',
+          url: 'https://kalansplane.vercel.app',
+          sprite: [
+            '...........111..',
+            '..........11111.',
+            '..111......222..',
+            '.11111..000.....',
+            '..222..0rrr0....',
+            '.00...011110..0.',
+            '0rr000111cc100s0',
+            '0rrrrrrrrrrrr1s0',
+            '.000000rrr00000.',
+            '.....0rrrr0...0.',
+            '.....00000......',
+            '................',
+            '...ggg.....gggg.',
+            '.ggggggg.ggggggg',
+            'ggggGGGGgGGGGGGG',
+            'GGGGGGGGGGGGGGGG'
+          ]
+        },
+        {
+          id: 'maze-of-balls',
+          title: 'Maze of Balls',
+          blurb: 'Roll the ball through the green walls. They do not move.',
+          category: 'Puzzle',
+          accent: '#4ade80',
+          url: 'https://mazeofballs.vercel.app',
+          sprite: [
+            'GGGGGGGGGGGGGGGG',
+            'GggggggggggggggG',
+            'Gg00000000gg00gG',
+            'Gg0rr10000gg00gG',
+            'Gg0rrr0ggggg00gG',
+            'Gg00000ggggg00gG',
+            'Ggggg000000000gG',
+            'Ggggg00gggggg0gG',
+            'Gg00000gggggg0gG',
+            'Gg00gggg000000gG',
+            'Gg00gggg00gggggG',
+            'Gg00000000gggggG',
+            'Ggggggg00000yygG',
+            'Ggggggg00000yygG',
+            'GggggggggggggggG',
+            'GGGGGGGGGGGGGGGG'
+          ]
+        },
+        {
+          id: 'kalans-ski',
+          title: 'Kalan’s Ski',
+          blurb: 'Carve the slope, clip the gates, beat the clock.',
+          category: 'Arcade',
+          accent: '#60a5fa',
+          url: 'https://kalanski.vercel.app',
+          sprite: [
+            '..G.........1111',
+            '.GGG...00..11111',
+            'GGGGG..0c0111111',
+            '..m...0rr0111211',
+            '.111.0r0r0112c11',
+            '11111.000112cc11',
+            '11r011.0.01cc111',
+            '1rr0110001cc11B0',
+            '111010011cc11BB0',
+            '11101111cc111110',
+            '1111111cc1111110',
+            '111111cc1111G111',
+            '11111cc1111GGG11',
+            '1111cc1111GGGGG1',
+            '111cc1111111m111',
+            '1122111111111111'
+          ]
+        },
+        {
+          id: 'kalans-sea',
+          title: 'Kalan’s Sea',
+          blurb: 'An endless ocean. Sail it, name things, get lost.',
+          category: 'Ambient',
+          accent: '#22d3ee',
+          url: 'https://kalansea.vercel.app',
+          sprite: [
+            '..yy............',
+            '.yyyy....0......',
+            '.yyyy...010.....',
+            '..oo....0110....',
+            '........01110...',
+            '......0.011110..',
+            '.....0200111110.',
+            '....022001111110',
+            '...0222002222220',
+            '........0.......',
+            '.00000000000000.',
+            '..0mmmmmmmmmm0..',
+            'cc00MMMMMMMM00cc',
+            'CCCcCCCCCCCCcCCC',
+            'BBBBcBBBBBBcBBBB',
+            'BBBBBBBBBBBBBBBB'
+          ]
+        },
+        {
+          id: 'card-forge-3d',
+          title: 'Card Forge 3D',
+          blurb: 'Crack open packs, pull the foils, forge the ultimate deck.',
+          category: 'Cards',
+          accent: '#facc15',
+          url: 'https://cardforge3d.vercel.app',
+          sprite: [
+            '....0000000000..',
+            'y..0yyyyyyyyyy0.',
+            '...0y11111111y0.',
+            '.000y1ppppcc1y0.',
+            '0220y1pppccc1y0.',
+            '0210y1ppyycc1y0.',
+            '0210y1pyyyyc1y0y',
+            '0210y1ppyycc1y0.',
+            '0210y1cccccc1y0.',
+            '0210y11111111y0.',
+            '0210y1rrrrrr1y0.',
+            '0210y12222221y0.',
+            '0220y11111111y0.',
+            '.000yyyyyyyyyy0.',
+            '....0000000000..',
+            '..y.............'
+          ]
+        },
+        {
+          id: 'kalans-scary-game',
+          title: 'Kalan’s Scary Game',
+          blurb: 'All Hallows’ Eve in the Hollow. Light the candles, keep the dread fed, survive the night.',
+          category: 'Horror',
+          accent: '#ef4444',
+          url: 'https://kalanscarygame.vercel.app',
+          sprite: [
+            '................',
+            '....rrrr....rrrr',
+            '....rYYr....rYYr',
+            '....rYYr....rYYr',
+            '....ryyy....ryyy',
+            '....ryyy....ryyy',
+            '....ryyy....ryyy',
+            '....rssr....rssr',
+            '....rssr....rssr',
+            '....roor....roor',
+            '....roor....roor',
+            '....roor....roor',
+            '....roor....roor',
+            '....oYYo....oYYo',
+            '....oYYo....oYYo',
+            '....oYYo....oYYo',
+            '................'
+          ]
+        },
+        {
+          id: 'portalroyale',
+          title: 'Portal Royale',
+          blurb: 'Battle royale where the portal gun meets plain old guns. Outsmart, out-portal, outlast.',
+          category: 'Battle Royale',
+          accent: '#c084fc',
+          url: 'https://portalroyale.vercel.app',
+          sprite: [
+            '................',
+            '....cccc....cccc',
+            '....cPPc....cPPc',
+            '....cPPc....cPPc',
+            '....cBBb....cBBb',
+            '....cBBb....cBBb',
+            '....cBBb....cBBb',
+            '....cBBb....cBBb',
+            '....cBBb....cBBb',
+            '....cccc....cccc',
+            '....cccc....cccc',
+            '....cccc....cccc',
+            '....cccc....cccc',
+            '....oYYo....oYYo',
+            '....oYYo....oYYo',
+            '....oYYo....oYYo',
+            '................'
+          ]
+        }
+      ];
+
+      // Pure filtering helper
+      function filterGames(games, category, searchQuery) {
+        const normalizedQuery = (searchQuery || '').trim().toLowerCase();
+        return games.filter(function (game) {
+          const matchesCategory = category === 'All' || game.category === category;
+          const matchesSearch =
+            normalizedQuery === '' || game.title.toLowerCase().includes(normalizedQuery);
+          return matchesCategory && matchesSearch;
+        });
+      }
+
+      // Pure 3D Box Geometry Builder (Outward CCW faces, normals, UVs)
+      function createBoxGeometry(w, h, d, ox, oy, oz) {
+        const cx = ox || 0;
+        const cy = oy || 0;
+        const cz = oz || 0;
+        const x0 = cx - w * 0.5;
+        const x1 = cx + w * 0.5;
+        const y0 = cy - h * 0.5;
+        const y1 = cy + h * 0.5;
+        const z0 = cz - d * 0.5;
+        const z1 = cz + d * 0.5;
+
+        // 24 vertices: pos(3), normal(3), uv(2)
+        const positions = [
+          // +Z Front
+          x0, y1, z1,  x0, y0, z1,  x1, y0, z1,  x1, y1, z1,
+          // -Z Back
+          x1, y1, z0,  x1, y0, z0,  x0, y0, z0,  x0, y1, z0,
+          // +X Right
+          x1, y1, z1,  x1, y0, z1,  x1, y0, z0,  x1, y1, z0,
+          // -X Left
+          x0, y1, z0,  x0, y0, z0,  x0, y0, z1,  x0, y1, z1,
+          // +Y Top
+          x0, y1, z0,  x0, y1, z1,  x1, y1, z1,  x1, y1, z0,
+          // -Y Bottom
+          x0, y0, z1,  x0, y0, z0,  x1, y0, z0,  x1, y0, z1
+        ];
+
+        const normals = [
+          0, 0, 1,   0, 0, 1,   0, 0, 1,   0, 0, 1,
+          0, 0, -1,  0, 0, -1,  0, 0, -1,  0, 0, -1,
+          1, 0, 0,   1, 0, 0,   1, 0, 0,   1, 0, 0,
+          -1, 0, 0,  -1, 0, 0,  -1, 0, 0,  -1, 0, 0,
+          0, 1, 0,   0, 1, 0,   0, 1, 0,   0, 1, 0,
+          0, -1, 0,  0, -1, 0,  0, -1, 0,  0, -1, 0
+        ];
+
+        const uvs = [
+          0, 0,  0, 1,  1, 1,  1, 0,
+          0, 0,  0, 1,  1, 1,  1, 0,
+          0, 0,  0, 1,  1, 1,  1, 0,
+          0, 0,  0, 1,  1, 1,  1, 0,
+          0, 0,  0, 1,  1, 1,  1, 0,
+          0, 0,  0, 1,  1, 1,  1, 0
+        ];
+
+        const indices = [];
+        for (let f = 0; f < 6; f++) {
+          const base = f * 4;
+          indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+        }
+
+        return {
+          positions: new Float32Array(positions),
+          normals: new Float32Array(normals),
+          uvs: new Float32Array(uvs),
+          indices: new Uint16Array(indices)
+        };
+      }
+
+      function smoothstep(edge0, edge1, x) {
+        const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+        return t * t * (3 - 2 * t);
+      }
+
+      function easeOutCubic(t) {
+        const clamped = Math.max(0, Math.min(1, t));
+        return 1 - Math.pow(1 - clamped, 3);
+      }
+
+      function easeInOutCubic(t) {
+        const c = Math.max(0, Math.min(1, t));
+        return c < 0.5 ? 4 * c * c * c : 1 - Math.pow(-2 * c + 2, 3) / 2;
+      }
+
+      /**
+       * Pure 4-Stage 3D NES Front-Loader Cartridge Insertion Kinematics
+       * progress in [0..1]:
+       *  - [0.00..0.44]: Lift off shelf, arc forward in 3D, pitch horizontal (-90 deg X), console door opens
+       *  - [0.44..0.76]: Slide horizontally along -Z straight into the open console mouth
+       *  - [0.76..0.94]: Classic NES ZIF spring tray push-down lock (-Y) + door settles partway
+       *  - [0.94..1.00]: Power button depresses & latch settles
+       */
+      const OPEN_DOOR_ANGLE = 2.14;
+      const SEATED_DOOR_ANGLE = 1.02;
+      const SNAP_ROTATE_END = 0.24;
+      const SNAP_SLIDE_END = 0.88;
+      const SNAP_INSERT_MS = 2150;
+      const SHELF_CLICK_INSERT_MS = 2000;
+      const CTRL_INSERT_MS = 2000;
+      const DISPLACED_RETURN_MS = 1500;
+
+      const CONTROLLER_CARTRIDGES = [
+        {
+          id: 'ctrl-pak-b',
+          side: 'left',
+          title: 'PAK-B',
+          blurb: '',
+          category: 'SLOT B',
+          accent: PALETTE['r'],
+          url: 'https://Jojosarcade.vercel.app',
+          isControllerPak: true,
+          sprite: [
+            '................',
+            '....rrrrrrrr....',
+            '..rrrrrrrrrrrr..',
+            '..rr1111111rrR..',
+            '.rrr11rrrr11rrR.',
+            '.rrr11rrrr11rrR.',
+            '.rrr1111111rrrR.',
+            '.rrr11rrrr11rrR.',
+            '.rrr11rrrr11rrR.',
+            '.rrr11rrrr11rrR.',
+            '..rr1111111rrR..',
+            '..rrrrrrrrrrrR..',
+            '...RRRRRRRRRR...',
+            '................',
+            '................',
+            '................'
+          ]
+        },
+        {
+          id: 'ctrl-pak-a',
+          side: 'right',
+          title: 'PAK-A',
+          blurb: '',
+          category: 'SLOT A',
+          accent: PALETTE['y'],
+          url: 'https://malenhub.vercel.app',
+          isControllerPak: true,
+          sprite: [
+            '................',
+            '....yyyyyyyy....',
+            '..yyyyyyyyyyyy..',
+            '..yyYYYY11YYYY..',
+            '.yyyYYY1111YYY..',
+            '.yyyYY11yy11YY..',
+            '.yyyYY11yy11YY..',
+            '.yyyYY111111YY..',
+            '.yyyYY11yy11YY..',
+            '.yyyYY11yy11YY..',
+            '..yyYY11yy11YY..',
+            '..yyyyyyyyyyyY..',
+            '...YYYYYYYYYY...',
+            '................',
+            '................',
+            '................'
+          ]
+        }
+      ];
+
+      function getCartridgeById(id) {
+        if (!id) return null;
+        for (let i = 0; i < GAMES.length; i++) {
+          if (GAMES[i].id === id) return GAMES[i];
+        }
+        for (let j = 0; j < CONTROLLER_CARTRIDGES.length; j++) {
+          if (CONTROLLER_CARTRIDGES[j].id === id) return CONTROLLER_CARTRIDGES[j];
+        }
+        return null;
+      }
+
+      function computeInsertionPose(progress, shelfPos, consoleSlotPos) {
+        const p = Math.max(0, Math.min(1, progress));
+        const mouthX = consoleSlotPos[0];
+        const mouthY = consoleSlotPos[1] + 0.11;
+        const mouthFrontZ = consoleSlotPos[2] + 2.40;
+        const chamberZ = consoleSlotPos[2] + 0.94;
+        const lockedY = consoleSlotPos[1] - 0.02;
+
+        let x = shelfPos[0];
+        let y = shelfPos[1];
+        let z = shelfPos[2];
+        let rotX = 0;
+        let rotY = shelfPos[3] !== undefined ? shelfPos[3] : -0.18;
+        let rotZ = 0;
+        let doorAngle = 0;
+        let trayDrop = 0;
+        let powerPress = 0;
+
+        if (p < 0.44) {
+          const u = easeInOutCubic(p / 0.44);
+          const ctrlX = (shelfPos[0] + mouthX) * 0.5;
+          const ctrlY = Math.max(shelfPos[1], mouthY) + 0.72;
+          const ctrlZ = Math.max(shelfPos[2], mouthFrontZ) + 0.85;
+          const inv = 1 - u;
+
+          x = inv * inv * shelfPos[0] + 2 * inv * u * ctrlX + u * u * mouthX;
+          y = inv * inv * shelfPos[1] + 2 * inv * u * ctrlY + u * u * mouthY;
+          z = inv * inv * shelfPos[2] + 2 * inv * u * ctrlZ + u * u * mouthFrontZ;
+
+          rotX = -Math.PI * 0.5 * smoothstep(0.12, 0.95, p / 0.44);
+          rotY = (shelfPos[3] !== undefined ? shelfPos[3] : -0.18) * (1 - u);
+          rotZ = Math.sin(u * Math.PI) * (shelfPos[0] > 0 ? 0.12 : -0.12);
+          doorAngle = OPEN_DOOR_ANGLE * smoothstep(0.08, 0.75, p / 0.44);
+        } else if (p < 0.80) {
+          const u = smoothstep(0, 1, (p - 0.44) / 0.36);
+          x = mouthX;
+          y = mouthY;
+          z = mouthFrontZ + (chamberZ - mouthFrontZ) * u;
+          rotX = -Math.PI * 0.5;
+          rotY = 0;
+          rotZ = 0;
+          doorAngle = OPEN_DOOR_ANGLE;
+        } else if (p < 0.94) {
+          const u = easeOutCubic((p - 0.80) / 0.14);
+          x = mouthX;
+          y = mouthY + (lockedY - mouthY) * u;
+          z = chamberZ;
+          rotX = -Math.PI * 0.5;
+          rotY = 0;
+          rotZ = 0;
+          trayDrop = (lockedY - mouthY) * u;
+          doorAngle = OPEN_DOOR_ANGLE - (OPEN_DOOR_ANGLE - SEATED_DOOR_ANGLE) * u;
+        } else {
+          const u = smoothstep(0.94, 1.0, p);
+          x = mouthX;
+          y = lockedY;
+          z = chamberZ;
+          rotX = -Math.PI * 0.5;
+          rotY = 0;
+          rotZ = 0;
+          trayDrop = lockedY - mouthY;
+          doorAngle = SEATED_DOOR_ANGLE;
+          powerPress = Math.sin(u * Math.PI) * 0.08 + u * 0.035;
+        }
+
+        return {
+          x: x,
+          y: y,
+          z: z,
+          rotX: rotX,
+          rotY: rotY,
+          rotZ: rotZ,
+          doorAngle: doorAngle,
+          trayDrop: trayDrop,
+          powerPress: powerPress
+        };
+      }
+
+      const CART_CENTER_Y = 0.60;
+
+      /**
+       * Converts a cartridge's 3D geometric center (cx, cy, cz) + Euler angles (rotX, rotY, rotZ)
+       * into the bottom-origin root coordinates (x, y, z) expected by render3DCartridge,
+       * so any rotation leaves the 3D midpoint (cx, cy, cz) strictly fixed in place.
+       */
+      function cartridgeCenterToRoot(cx, cy, cz, rotX, rotY, rotZ) {
+        const y1 = CART_CENTER_Y * Math.cos(rotX);
+        const z1 = CART_CENTER_Y * Math.sin(rotX);
+        const x2 = -y1 * Math.sin(rotZ);
+        const y2 = y1 * Math.cos(rotZ);
+        const z2 = z1;
+        const ox = Math.cos(rotY) * x2 + Math.sin(rotY) * z2;
+        const oy = y2;
+        const oz = -Math.sin(rotY) * x2 + Math.cos(rotY) * z2;
+        return [cx - ox, cy - oy, cz - oz];
+      }
+
+      function cartridgeRootToCenter(rx, ry, rz, rotX, rotY, rotZ) {
+        const y1 = CART_CENTER_Y * Math.cos(rotX);
+        const z1 = CART_CENTER_Y * Math.sin(rotX);
+        const x2 = -y1 * Math.sin(rotZ);
+        const y2 = y1 * Math.cos(rotZ);
+        const z2 = z1;
+        const ox = Math.cos(rotY) * x2 + Math.sin(rotY) * z2;
+        const oy = y2;
+        const oz = -Math.sin(rotY) * x2 + Math.cos(rotY) * z2;
+        return [rx + ox, ry + oy, rz + oz];
+      }
+
+      /**
+       * Evaluates 3D proximity of a held cartridge's geometric center (cartCenterX, cartCenterY)
+       * to the NES console's open front loading slot.
+       * Lifts the 3D lid door cleanly above the slot opening on approach, and captures ONLY over the slot mouth.
+       */
+      function evaluateConsoleProximity(cartCenterX, cartCenterY, consoleSlotPos) {
+        const slotTargetX = consoleSlotPos[0];
+        const slotTargetY = consoleSlotPos[1] + 0.18;
+        const dx = cartCenterX - slotTargetX;
+        const dy = cartCenterY - slotTargetY;
+        const doorNormDist = Math.hypot(dx / 1.32, dy / 0.92);
+        const doorOpenAmount = OPEN_DOOR_ANGLE * (1 - smoothstep(0.65, 1.95, doorNormDist));
+        const normDist = Math.hypot(dx / 0.48, dy / 0.40);
+        const inCaptureZone = normDist <= 1.0;
+        return {
+          inCaptureZone: inCaptureZone,
+          normDist: normDist,
+          doorOpenAmount: doorOpenAmount
+        };
+      }
+
+      /**
+       * Pure 3-Stage Snap-Insert Kinematics around the cartridge's true 3D geometric center:
+       *  - [0.00..0.34]: ROTATES -90 deg IN PLACE at exact held center (sCx, sCy, sCz) with ZERO translation
+       *  - [0.34..0.84]: VISIBLY SLIDES horizontally through the open bay into the ZIF cradle (door lifted clear!)
+       *  - [0.84..1.00]: Presses down into the ZIF detent with a mechanical click & rests visibly inside the bay
+       */
+      function computeSnapInsertPose(progress, startPose, consoleSlotPos) {
+        const p = Math.max(0, Math.min(1, progress));
+        const mouthX = consoleSlotPos[0];
+        const mouthY = consoleSlotPos[1] + 0.11;
+        const chamberCenterZ = consoleSlotPos[2] + 0.34;
+        const lockedY = consoleSlotPos[1] - 0.02;
+
+        const sCx = startPose.cx !== undefined ? startPose.cx : startPose.x;
+        const sCy = startPose.cy !== undefined ? startPose.cy : startPose.y;
+        const sCz = startPose.cz !== undefined ? startPose.cz : startPose.z;
+        const sRotX = startPose.rotX !== undefined ? startPose.rotX : -0.10;
+        const sRotY = startPose.rotY !== undefined ? startPose.rotY : 0;
+        const sRotZ = startPose.rotZ !== undefined ? startPose.rotZ : 0;
+
+        let cx = sCx;
+        let cy = sCy;
+        let cz = sCz;
+        let rotX = -Math.PI * 0.5;
+        let rotY = 0;
+        let rotZ = 0;
+        let doorAngle = OPEN_DOOR_ANGLE;
+        let trayDrop = 0;
+        let powerPress = 0;
+
+        if (p < SNAP_ROTATE_END) {
+          // Stage 1: Rotate strictly IN PLACE around held 3D center (zero X/Y/Z jump!)
+          const u = easeInOutCubic(p / SNAP_ROTATE_END);
+          cx = sCx;
+          cy = sCy;
+          cz = sCz;
+          rotX = sRotX + (-Math.PI * 0.5 - sRotX) * u;
+          rotY = sRotY * (1 - u);
+          rotZ = sRotZ * (1 - u);
+          doorAngle = OPEN_DOOR_ANGLE;
+        } else if (p < SNAP_SLIDE_END) {
+          // Stage 2: Smooth, steady horizontal glide straight into the unobstructed open bay
+          const slideT = (p - SNAP_ROTATE_END) / (SNAP_SLIDE_END - SNAP_ROTATE_END);
+          const uZ = smoothstep(0, 1, slideT);
+          const uXY = easeOutCubic(Math.min(1, slideT / 0.32));
+          cx = sCx + (mouthX - sCx) * uXY;
+          cy = sCy + (mouthY - sCy) * uXY;
+          cz = sCz + (chamberCenterZ - sCz) * uZ;
+          rotX = -Math.PI * 0.5;
+          rotY = 0;
+          rotZ = 0;
+          doorAngle = OPEN_DOOR_ANGLE;
+        } else {
+          // Stage 3: ZIF push-down latch detent inside chamber (cartridge stays visibly seated!)
+          const u = easeOutCubic((p - SNAP_SLIDE_END) / (1 - SNAP_SLIDE_END));
+          cx = mouthX;
+          cy = mouthY + (lockedY - mouthY) * u;
+          cz = chamberCenterZ;
+          rotX = -Math.PI * 0.5;
+          rotY = 0;
+          rotZ = 0;
+          trayDrop = (lockedY - mouthY) * u;
+          doorAngle = OPEN_DOOR_ANGLE - (OPEN_DOOR_ANGLE - SEATED_DOOR_ANGLE) * u;
+          powerPress = u * 0.045;
+        }
+
+        const root = cartridgeCenterToRoot(cx, cy, cz, rotX, rotY, rotZ);
+
+        return {
+          x: root[0],
+          y: root[1],
+          z: root[2],
+          cx: cx,
+          cy: cy,
+          cz: cz,
+          rotX: rotX,
+          rotY: rotY,
+          rotZ: rotZ,
+          doorAngle: doorAngle,
+          trayDrop: trayDrop,
+          powerPress: powerPress
+        };
+      }
+
+      /**
+       * Pure 3-Stage 2-Second Controller Expansion Cartridge Kinematics (progress in [0..1] over 2000ms):
+       *  - [0.00..0.28]: Rises visibly from beside the 3D controller, arcs to the console mouth, pitches horizontal (-90 deg), opens lid
+       *  - [0.28..0.88]: Long, unobstructed horizontal slide from outside the console (z = slotZ + 2.48) deep into the bay
+       *  - [0.88..1.00]: Mechanical ZIF push-down latch detent click & power button press
+       */
+      function computeControllerInsertPose(progress, side, consoleSlotPos) {
+        const p = Math.max(0, Math.min(1, progress));
+        const startCx = side === 'left' ? 2.14 : 2.62;
+        const startCy = -1.16;
+        const startCz = 2.46;
+        const startRotX = -0.16;
+        const startRotY = -0.28;
+        const startRotZ = side === 'left' ? 0.05 : -0.05;
+
+        const mouthX = consoleSlotPos[0];
+        const mouthY = consoleSlotPos[1] + 0.11;
+        const alignCz = consoleSlotPos[2] + 2.48;
+        const chamberCenterZ = consoleSlotPos[2] + 0.34;
+        const lockedY = consoleSlotPos[1] - 0.02;
+
+        const arcEnd = 0.28;
+        const slideEnd = SNAP_SLIDE_END;
+
+        let cx = mouthX;
+        let cy = mouthY;
+        let cz = chamberCenterZ;
+        let rotX = -Math.PI * 0.5;
+        let rotY = 0;
+        let rotZ = 0;
+        let doorAngle = OPEN_DOOR_ANGLE;
+        let trayDrop = 0;
+        let powerPress = 0;
+
+        if (p < arcEnd) {
+          const u = easeInOutCubic(p / arcEnd);
+          const inv = 1 - u;
+          const ctrlX = startCx * 0.46 + mouthX * 0.54;
+          const ctrlY = Math.max(startCy, mouthY) + 0.68;
+          const ctrlZ = alignCz + 0.44;
+
+          cx = inv * inv * startCx + 2 * inv * u * ctrlX + u * u * mouthX;
+          cy = inv * inv * startCy + 2 * inv * u * ctrlY + u * u * mouthY;
+          cz = inv * inv * startCz + 2 * inv * u * ctrlZ + u * u * alignCz;
+
+          const rotU = smoothstep(0.08, 0.96, p / arcEnd);
+          rotX = startRotX + (-Math.PI * 0.5 - startRotX) * rotU;
+          rotY = startRotY * (1 - rotU);
+          rotZ = startRotZ * (1 - rotU);
+          doorAngle = OPEN_DOOR_ANGLE * smoothstep(0.05, 0.78, p / arcEnd);
+        } else if (p < slideEnd) {
+          const slideT = (p - arcEnd) / (slideEnd - arcEnd);
+          const uZ = smoothstep(0, 1, slideT);
+          cx = mouthX;
+          cy = mouthY;
+          cz = alignCz + (chamberCenterZ - alignCz) * uZ;
+          rotX = -Math.PI * 0.5;
+          rotY = 0;
+          rotZ = 0;
+          doorAngle = OPEN_DOOR_ANGLE;
+        } else {
+          const u = easeOutCubic((p - slideEnd) / (1 - slideEnd));
+          cx = mouthX;
+          cy = mouthY + (lockedY - mouthY) * u;
+          cz = chamberCenterZ;
+          rotX = -Math.PI * 0.5;
+          rotY = 0;
+          rotZ = 0;
+          trayDrop = (lockedY - mouthY) * u;
+          doorAngle = OPEN_DOOR_ANGLE - (OPEN_DOOR_ANGLE - SEATED_DOOR_ANGLE) * u;
+          powerPress = u * 0.045;
+        }
+
+        const root = cartridgeCenterToRoot(cx, cy, cz, rotX, rotY, rotZ);
+        return {
+          x: root[0],
+          y: root[1],
+          z: root[2],
+          cx: cx,
+          cy: cy,
+          cz: cz,
+          rotX: rotX,
+          rotY: rotY,
+          rotZ: rotZ,
+          doorAngle: doorAngle,
+          trayDrop: trayDrop,
+          powerPress: powerPress
+        };
+      }
+
+      /**
+       * Pure 3-Stage 1.5-Second Displaced Cartridge Rear-Exit & Slide-Into-Place Kinematics
+       * (progress in [0..1] over DISPLACED_RETURN_MS = 1500ms):
+       *  - [0.00..0.24]: Unlatches from ZIF cradle and pushes straight backward (-Z) through the rear of the console
+       *  - [0.24..0.70]: Rises visibly behind the console and arcs along the rear lane to directly behind its resting slot
+       *  - [0.70..1.00]: Slides smoothly forward (+Z) from behind straight into place
+       */
+      function computeDisplacedReturnPose(progress, shelfPos, consoleSlotPos, options) {
+        const p = Math.max(0, Math.min(1, progress));
+        const opts = options || {};
+        const isCtrlPak = Boolean(opts.isControllerPak);
+        const ctrlSide = opts.side === 'right' ? 'right' : 'left';
+        const customStart = opts.startPose || null;
+
+        const mouthX = consoleSlotPos[0];
+        const mouthY = consoleSlotPos[1] + 0.11;
+        const chamberCenterZ = consoleSlotPos[2] + 0.34;
+        const lockedY = consoleSlotPos[1] - 0.02;
+
+        const startCx = customStart && customStart.cx !== undefined ? customStart.cx : mouthX;
+        const startCy = customStart && customStart.cy !== undefined ? customStart.cy : lockedY;
+        const startCz = customStart && customStart.cz !== undefined ? customStart.cz : chamberCenterZ;
+        const startRotX =
+          customStart && customStart.rotX !== undefined ? customStart.rotX : -Math.PI * 0.5;
+        const startRotY = customStart && customStart.rotY !== undefined ? customStart.rotY : 0;
+        const startRotZ = customStart && customStart.rotZ !== undefined ? customStart.rotZ : 0;
+
+        const targetRotX = isCtrlPak ? -Math.PI * 0.5 : 0;
+        const targetRotY = isCtrlPak
+          ? -0.28
+          : shelfPos[3] !== undefined
+            ? shelfPos[3]
+            : -0.18;
+        const targetRotZ = 0;
+
+        const shelfCenter = isCtrlPak
+          ? [ctrlSide === 'left' ? 2.40 : 2.78, -1.96, 1.72]
+          : cartridgeRootToCenter(shelfPos[0], shelfPos[1], shelfPos[2], 0, targetRotY, 0);
+
+        const targetCx = shelfCenter[0];
+        const targetCy = shelfCenter[1];
+        const targetCz = shelfCenter[2];
+
+        const rearTunnelEnd = 0.24;
+        const behindArcEnd = 0.70;
+
+        const rearExitCz = isCtrlPak
+          ? -0.82
+          : Math.min(shelfPos[2] - 0.84, consoleSlotPos[2] - 2.06);
+        const behindStageCx = targetCx;
+        const behindStageCy = isCtrlPak ? -1.34 : targetCy + 0.06;
+        const behindStageCz = isCtrlPak ? 0.38 : shelfPos[2] - 0.82;
+
+        let cx = targetCx;
+        let cy = targetCy;
+        let cz = targetCz;
+        let rotX = targetRotX;
+        let rotY = targetRotY;
+        let rotZ = targetRotZ;
+        let scale = 1.0;
+
+        if (p < rearTunnelEnd) {
+          const s1 = p / rearTunnelEnd;
+          const uUnlatch = easeOutCubic(Math.min(1, s1 / 0.25));
+          const uPush = easeInOutCubic(s1);
+          cx = startCx + (mouthX - startCx) * uUnlatch;
+          cy = startCy + (mouthY - startCy) * uUnlatch;
+          cz = startCz + (rearExitCz - startCz) * uPush;
+          rotX = startRotX + (-Math.PI * 0.5 - startRotX) * uUnlatch;
+          rotY = startRotY * (1 - uUnlatch);
+          rotZ = startRotZ * (1 - uUnlatch);
+        } else if (p < behindArcEnd) {
+          const s2 = (p - rearTunnelEnd) / (behindArcEnd - rearTunnelEnd);
+          const u2 = easeInOutCubic(s2);
+          const inv = 1 - u2;
+
+          const ctrlX = mouthX * 0.38 + behindStageCx * 0.62;
+          const ctrlY = Math.max(mouthY + 0.92, (mouthY + behindStageCy) * 0.5 + 0.42);
+          const ctrlZ = Math.min(rearExitCz, behindStageCz) - 0.22;
+
+          cx = inv * inv * mouthX + 2 * inv * u2 * ctrlX + u2 * u2 * behindStageCx;
+          cy = inv * inv * mouthY + 2 * inv * u2 * ctrlY + u2 * u2 * behindStageCy;
+          cz = inv * inv * rearExitCz + 2 * inv * u2 * ctrlZ + u2 * u2 * behindStageCz;
+
+          const rotU = smoothstep(0.06, 0.92, s2);
+          rotX = -Math.PI * 0.5 + (targetRotX - -Math.PI * 0.5) * rotU;
+          rotY = targetRotY * rotU;
+          rotZ = Math.sin(u2 * Math.PI) * (behindStageCx >= 0 ? -0.10 : 0.10);
+        } else {
+          const s3 = (p - behindArcEnd) / (1 - behindArcEnd);
+          const uSlide = easeOutCubic(s3);
+          const uSettleY = smoothstep(0.32, 1.0, s3);
+
+          cx = behindStageCx + (targetCx - behindStageCx) * uSlide;
+          cy = behindStageCy + (targetCy - behindStageCy) * uSettleY;
+          cz = behindStageCz + (targetCz - behindStageCz) * uSlide;
+          rotX = targetRotX;
+          rotY = targetRotY;
+          rotZ = 0;
+
+          if (isCtrlPak) {
+            scale = 1.0 - 0.58 * smoothstep(0.55, 1.0, s3);
+          }
+        }
+
+        const rearDoorAngle =
+          1.48 *
+          smoothstep(0.0, 0.08, p) *
+          (1 - smoothstep(rearTunnelEnd - 0.02, rearTunnelEnd + 0.12, p));
+        const frontDoorHold =
+          (SEATED_DOOR_ANGLE + (OPEN_DOOR_ANGLE - SEATED_DOOR_ANGLE) * smoothstep(0.0, 0.12, p)) *
+          (1 - smoothstep(0.32, 0.52, p));
+        const trayDrop =
+          p < 0.06 ? (lockedY - mouthY) * (1 - easeOutCubic(p / 0.06)) : 0;
+
+        const root = cartridgeCenterToRoot(cx, cy, cz, rotX, rotY, rotZ);
+        return {
+          x: root[0],
+          y: root[1],
+          z: root[2],
+          cx: cx,
+          cy: cy,
+          cz: cz,
+          rotX: rotX,
+          rotY: rotY,
+          rotZ: rotZ,
+          scale: Math.max(0.05, scale),
+          rearDoorAngle: rearDoorAngle,
+          frontDoorHold: frontDoorHold,
+          trayDrop: trayDrop
+        };
+      }
+
+      // DOM References
+      const categoryBarEl = document.getElementById('category-bar');
+      const searchInputEl = document.getElementById('game-search');
+      const searchClearEl = document.getElementById('search-clear');
+      const shelfCountEl = document.getElementById('shelf-count');
+      const hitLayerEl = document.getElementById('hit-layer');
+      const ctrlLeftBtnEl = document.getElementById('ctrl-left-btn');
+      const ctrlRightBtnEl = document.getElementById('ctrl-right-btn');
+      const consoleDropProbeEl = document.getElementById('console-drop-probe');
+      const emptyShelfEl = document.getElementById('empty-shelf');
+      const resetFiltersEl = document.getElementById('reset-filters');
+      const stageMainEl = document.getElementById('shelf');
+      const canvasEl = document.getElementById('webgl-canvas');
+
+      const launchLinkEl = document.getElementById('launch-link');
+      const powerLedEl = document.getElementById('power-led');
+      const consoleReadoutEl = document.getElementById('console-readout');
+      const ejectBtnEl = document.getElementById('eject-btn');
+
+      // Ordered unique categories
+      const CATEGORIES = ['All'];
+      GAMES.forEach(function (g) {
+        if (!CATEGORIES.includes(g.category)) {
+          CATEGORIES.push(g.category);
+        }
+      });
+
+      // Synthesized Web Audio API Crisp Physical Plastic Switch Click (zero audio files, zero synth beeps/sweeps)
+      let sharedAudioCtx = null;
+      function getAudioContext() {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return null;
+        if (!sharedAudioCtx) {
+          sharedAudioCtx = new AudioCtx();
+        }
+        if (sharedAudioCtx.state === 'suspended') {
+          sharedAudioCtx.resume().catch(function () {});
+        }
+        return sharedAudioCtx;
+      }
+
+      function playClickSound(kind) {
+        try {
+          const ctx = getAudioContext();
+          if (!ctx) return;
+          const now = ctx.currentTime;
+          const sr = ctx.sampleRate;
+
+          // Ultra-short (~26ms) two-part ABS plastic latch / microswitch click transient
+          const totalDur = 0.026;
+          const len = Math.floor(sr * totalDur);
+          const buf = ctx.createBuffer(1, len, sr);
+          const data = buf.getChannelData(0);
+          const secondOffset = Math.floor(sr * (kind === 'eject' ? 0.010 : 0.013));
+
+          for (let i = 0; i < len; i++) {
+            const t = i / sr;
+            const snap1 =
+              (Math.random() * 2 - 1) * Math.exp(-t / 0.0011) * 0.72 +
+              Math.sin(2 * Math.PI * 1920 * t) * Math.exp(-t / 0.0010) * 0.52;
+
+            let snap2 = 0;
+            if (i >= secondOffset) {
+              const t2 = (i - secondOffset) / sr;
+              snap2 =
+                (Math.random() * 2 - 1) * Math.exp(-t2 / 0.0009) * 0.54 +
+                Math.sin(2 * Math.PI * 2550 * t2) * Math.exp(-t2 / 0.0008) * 0.44;
+            }
+            data[i] = Math.max(-1, Math.min(1, snap1 + snap2));
+          }
+
+          const src = ctx.createBufferSource();
+          src.buffer = buf;
+
+          const hp = ctx.createBiquadFilter();
+          hp.type = 'highpass';
+          hp.frequency.setValueAtTime(340, now);
+
+          const lp = ctx.createBiquadFilter();
+          lp.type = 'lowpass';
+          lp.frequency.setValueAtTime(6400, now);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.48, now);
+
+          src.connect(hp);
+          hp.connect(lp);
+          lp.connect(gain);
+          gain.connect(ctx.destination);
+          src.start(now);
+        } catch (_err) {
+          // Ignore audio errors if blocked
+        }
+      }
+
+      function prefersReducedMotion() {
+        return (
+          typeof window.matchMedia === 'function' &&
+          window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        );
+      }
+
+      function openUrlInNewTab(url) {
+        if (!url) return;
+        const hasUserActivationApi =
+          typeof navigator !== 'undefined' && Boolean(navigator.userActivation);
+        const hadTransientActivation = hasUserActivationApi
+          ? Boolean(navigator.userActivation.isActive)
+          : true;
+        const hadStickyActivation = hasUserActivationApi
+          ? Boolean(navigator.userActivation.hasBeenActive)
+          : false;
+
+        // Keep a persistent, non-display:none anchor in the DOM so async navigation is never cancelled by .remove()
+        let anchor = document.getElementById('auto-launch-anchor');
+        if (!anchor) {
+          anchor = document.createElement('a');
+          anchor.id = 'auto-launch-anchor';
+          anchor.target = '_blank';
+          anchor.rel = 'noopener noreferrer';
+          anchor.tabIndex = -1;
+          anchor.setAttribute('aria-hidden', 'true');
+          anchor.style.position = 'fixed';
+          anchor.style.left = '-9999px';
+          anchor.style.top = '0';
+          anchor.style.width = '1px';
+          anchor.style.height = '1px';
+          anchor.style.opacity = '0';
+          anchor.style.pointerEvents = 'none';
+          document.body.appendChild(anchor);
+        }
+        anchor.href = url;
+        anchor.click();
+
+        // If transient popup gesture expired during the 2s animation (e.g. Safari 1s limit or >5s drag),
+        // fall back to direct navigation so the target site still opens automatically.
+        if (!hadTransientActivation && hadStickyActivation) {
+          window.location.assign(url);
+        }
+      }
+
+      function hexToRgb01(hex) {
+        const clean = hex.replace('#', '');
+        const n = parseInt(clean, 16);
+        return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+      }
+
+      // =========================================================================
+      // Minimal Zero-Allocation Column-Major Mat4 Utilities
+      // =========================================================================
+      function mat4Create() {
+        const m = new Float32Array(16);
+        m[0] = 1; m[5] = 1; m[10] = 1; m[15] = 1;
+        return m;
+      }
+
+      function mat4Identity(out) {
+        out.fill(0);
+        out[0] = 1; out[5] = 1; out[10] = 1; out[15] = 1;
+        return out;
+      }
+
+      function mat4Copy(out, a) {
+        out.set(a);
+        return out;
+      }
+
+      function mat4Multiply(out, a, b) {
+        const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+        const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+        const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+        const a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
+
+        let b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
+        out[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+        out[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+        out[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+        out[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+
+        b0 = b[4]; b1 = b[5]; b2 = b[6]; b3 = b[7];
+        out[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+        out[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+        out[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+        out[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+
+        b0 = b[8]; b1 = b[9]; b2 = b[10]; b3 = b[11];
+        out[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+        out[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+        out[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+        out[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+
+        b0 = b[12]; b1 = b[13]; b2 = b[14]; b3 = b[15];
+        out[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+        out[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+        out[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+        out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+        return out;
+      }
+
+      function mat4Translate(out, a, x, y, z) {
+        if (a !== out) out.set(a);
+        out[12] = a[0] * x + a[4] * y + a[8] * z + a[12];
+        out[13] = a[1] * x + a[5] * y + a[9] * z + a[13];
+        out[14] = a[2] * x + a[6] * y + a[10] * z + a[14];
+        out[15] = a[3] * x + a[7] * y + a[11] * z + a[15];
+        return out;
+      }
+
+      function mat4Scale(out, a, sx, sy, sz) {
+        out[0] = a[0] * sx; out[1] = a[1] * sx; out[2] = a[2] * sx; out[3] = a[3] * sx;
+        out[4] = a[4] * sy; out[5] = a[5] * sy; out[6] = a[6] * sy; out[7] = a[7] * sy;
+        out[8] = a[8] * sz; out[9] = a[9] * sz; out[10] = a[10] * sz; out[11] = a[11] * sz;
+        out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+        return out;
+      }
+
+      function mat4RotateX(out, a, rad) {
+        const s = Math.sin(rad), c = Math.cos(rad);
+        const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+        const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+        if (a !== out) {
+          out[0] = a[0]; out[1] = a[1]; out[2] = a[2]; out[3] = a[3];
+          out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+        }
+        out[4] = a10 * c + a20 * s;
+        out[5] = a11 * c + a21 * s;
+        out[6] = a12 * c + a22 * s;
+        out[7] = a13 * c + a23 * s;
+        out[8] = a20 * c - a10 * s;
+        out[9] = a21 * c - a11 * s;
+        out[10] = a22 * c - a12 * s;
+        out[11] = a23 * c - a13 * s;
+        return out;
+      }
+
+      function mat4RotateY(out, a, rad) {
+        const s = Math.sin(rad), c = Math.cos(rad);
+        const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+        const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+        if (a !== out) {
+          out[4] = a[4]; out[5] = a[5]; out[6] = a[6]; out[7] = a[7];
+          out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+        }
+        out[0] = a00 * c - a20 * s;
+        out[1] = a01 * c - a21 * s;
+        out[2] = a02 * c - a22 * s;
+        out[3] = a03 * c - a23 * s;
+        out[8] = a00 * s + a20 * c;
+        out[9] = a01 * s + a21 * c;
+        out[10] = a02 * s + a22 * c;
+        out[11] = a03 * s + a23 * c;
+        return out;
+      }
+
+      function mat4RotateZ(out, a, rad) {
+        const s = Math.sin(rad), c = Math.cos(rad);
+        const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+        const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+        if (a !== out) {
+          out[8] = a[8]; out[9] = a[9]; out[10] = a[10]; out[11] = a[11];
+          out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+        }
+        out[0] = a00 * c + a10 * s;
+        out[1] = a01 * c + a11 * s;
+        out[2] = a02 * c + a12 * s;
+        out[3] = a03 * c + a13 * s;
+        out[4] = a10 * c - a00 * s;
+        out[5] = a11 * c - a01 * s;
+        out[6] = a12 * c - a02 * s;
+        out[7] = a13 * c - a03 * s;
+        return out;
+      }
+
+      function mat4Perspective(out, fovy, aspect, near, far) {
+        const f = 1.0 / Math.tan(fovy * 0.5);
+        out.fill(0);
+        out[0] = f / aspect;
+        out[5] = f;
+        out[10] = (far + near) / (near - far);
+        out[11] = -1;
+        out[14] = (2 * far * near) / (near - far);
+        return out;
+      }
+
+      function mat4LookAt(out, eye, center, up) {
+        let zx = eye[0] - center[0];
+        let zy = eye[1] - center[1];
+        let zz = eye[2] - center[2];
+        let len = Math.hypot(zx, zy, zz) || 1;
+        zx /= len; zy /= len; zz /= len;
+
+        let xx = up[1] * zz - up[2] * zy;
+        let xy = up[2] * zx - up[0] * zz;
+        let xz = up[0] * zy - up[1] * zx;
+        len = Math.hypot(xx, xy, xz) || 1;
+        xx /= len; xy /= len; xz /= len;
+
+        const yx = zy * xz - zz * xy;
+        const yy = zz * xx - zx * xz;
+        const yz = zx * xy - zy * xx;
+
+        out[0] = xx; out[1] = yx; out[2] = zx; out[3] = 0;
+        out[4] = xy; out[5] = yy; out[6] = zy; out[7] = 0;
+        out[8] = xz; out[9] = yz; out[10] = zz; out[11] = 0;
+        out[12] = -(xx * eye[0] + xy * eye[1] + xz * eye[2]);
+        out[13] = -(yx * eye[0] + yy * eye[1] + yz * eye[2]);
+        out[14] = -(zx * eye[0] + zy * eye[1] + zz * eye[2]);
+        out[15] = 1;
+        return out;
+      }
+
+      function projectPoint(worldX, worldY, worldZ, vpMat, vpW, vpH, out) {
+        const cx = vpMat[0] * worldX + vpMat[4] * worldY + vpMat[8] * worldZ + vpMat[12];
+        const cy = vpMat[1] * worldX + vpMat[5] * worldY + vpMat[9] * worldZ + vpMat[13];
+        const cw = vpMat[3] * worldX + vpMat[7] * worldY + vpMat[11] * worldZ + vpMat[15];
+        if (cw <= 0.001) return false;
+        out[0] = (cx / cw * 0.5 + 0.5) * vpW;
+        out[1] = (0.5 - cy / cw * 0.5) * vpH;
+        return true;
+      }
+
+      // =========================================================================
+      // Procedural High-DPI Label & Hardware Canvas Textures
+      // =========================================================================
+      function wrapCanvasLines(ctx, text, maxWidth) {
+        const words = text.split(' ');
+        const lines = [];
+        let current = '';
+        for (let i = 0; i < words.length; i++) {
+          const testLine = current ? current + ' ' + words[i] : words[i];
+          if (ctx.measureText(testLine).width > maxWidth && current) {
+            lines.push(current);
+            current = words[i];
+          } else {
+            current = testLine;
+          }
+        }
+        if (current) lines.push(current);
+        return lines.slice(0, 2);
+      }
+
+      function buildCartridgeLabelCanvas(game, index) {
+        const c = document.createElement('canvas');
+        c.width = 512;
+        c.height = 640;
+        const ctx = c.getContext('2d');
+
+        // Recessed dark label background
+        ctx.fillStyle = '#141420';
+        ctx.fillRect(0, 0, 512, 640);
+
+        // Top accent stripe
+        ctx.fillStyle = game.accent;
+        ctx.fillRect(0, 0, 512, 22);
+
+        // Subtle inner frame border
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(18, 38, 476, 580);
+
+        // Pixel-art stage backdrop
+        const artX = 36, artY = 56, artW = 440, artH = 356;
+        const grad = ctx.createLinearGradient(0, artY, 0, artY + artH);
+        grad.addColorStop(0, '#1e1f30');
+        grad.addColorStop(1, '#0d0d16');
+        ctx.fillStyle = grad;
+        ctx.fillRect(artX, artY, artW, artH);
+
+        // Subtle grid lines in art window
+        ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+        ctx.lineWidth = 2;
+        for (let gx = artX + 28; gx < artX + artW; gx += 28) {
+          ctx.beginPath();
+          ctx.moveTo(gx, artY);
+          ctx.lineTo(gx, artY + artH);
+          ctx.stroke();
+        }
+        for (let gy = artY + 28; gy < artY + artH; gy += 28) {
+          ctx.beginPath();
+          ctx.moveTo(artX, gy);
+          ctx.lineTo(artX + artW, gy);
+          ctx.stroke();
+        }
+
+        // Crisp nearest-neighbor 16x16 pixel-art sprite (19px per pixel = 304x304)
+        const pxSize = 19;
+        const spriteSize = 16 * pxSize;
+        const sx0 = Math.floor(artX + (artW - spriteSize) * 0.5);
+        const sy0 = Math.floor(artY + (artH - spriteSize) * 0.5);
+
+        for (let py = 0; py < 16; py++) {
+          const row = game.sprite[py] || '';
+          for (let px = 0; px < 16; px++) {
+            const key = row[px];
+            if (!key || key === '.') continue;
+            const color = PALETTE[key];
+            if (color) {
+              ctx.fillStyle = color;
+              ctx.fillRect(sx0 + px * pxSize, sy0 + py * pxSize, pxSize, pxSize);
+            }
+          }
+        }
+
+        // Art frame border
+        ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(artX, artY, artW, artH);
+
+        // Game Title in Press Start 2P
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '27px "Press Start 2P", monospace';
+        ctx.textBaseline = 'top';
+        const lines = wrapCanvasLines(ctx, game.title, 436);
+        lines.forEach(function (line, lineIdx) {
+          ctx.fillText(line, 38, 434 + lineIdx * 40);
+        });
+
+        // Accent Category Tag + Pak Code
+        ctx.font = '20px "Press Start 2P", monospace';
+        const catText = game.category.toUpperCase();
+        ctx.fillStyle = game.accent;
+        ctx.fillText(catText, 38, 558);
+
+        ctx.font = '600 22px "DM Sans", sans-serif';
+        ctx.fillStyle = '#8b8da8';
+        ctx.textAlign = 'right';
+        ctx.fillText('KOS-' + String(index + 1).padStart(2, '0'), 472, 558);
+        ctx.textAlign = 'left';
+
+        return c;
+      }
+
+      function buildConsoleDoorCanvas() {
+        const c = document.createElement('canvas');
+        c.width = 512;
+        c.height = 128;
+        const ctx = c.getContext('2d');
+        const g = ctx.createLinearGradient(0, 0, 0, 128);
+        g.addColorStop(0, '#d5d7e0');
+        g.addColorStop(1, '#bcbec9');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, 512, 128);
+
+        ctx.strokeStyle = 'rgba(60, 62, 74, 0.35)';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(6, 6, 500, 116);
+
+        ctx.fillStyle = '#b91c1c';
+        ctx.font = '20px "Press Start 2P", monospace';
+        ctx.fillText('KALAN OS', 28, 48);
+
+        ctx.fillStyle = '#3c3e4d';
+        ctx.font = '700 18px "DM Sans", sans-serif';
+        ctx.fillText('ENTERTAINMENT SYSTEM', 28, 86);
+        return c;
+      }
+
+      function buildWoodTextureCanvas() {
+        const c = document.createElement('canvas');
+        c.width = 256;
+        c.height = 256;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#473223';
+        ctx.fillRect(0, 0, 256, 256);
+        for (let y = 0; y < 256; y += 2) {
+          const wave = Math.sin(y * 0.14) * 8 + Math.cos(y * 0.05) * 6;
+          const lum = 44 + Math.floor(wave);
+          ctx.fillStyle = 'rgb(' + (lum + 22) + ',' + (lum + 4) + ',' + Math.max(12, lum - 10) + ')';
+          ctx.fillRect(0, y, 256, 2);
+        }
+        return c;
+      }
+
+      function buildSoftShadowCanvas() {
+        const c = document.createElement('canvas');
+        c.width = 128;
+        c.height = 128;
+        const ctx = c.getContext('2d');
+        const g = ctx.createRadialGradient(64, 64, 8, 64, 64, 62);
+        g.addColorStop(0, 'rgba(0, 0, 0, 0.62)');
+        g.addColorStop(0.65, 'rgba(0, 0, 0, 0.26)');
+        g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, 128, 128);
+        return c;
+      }
+
+      // =========================================================================
+      // Software-WebGL Guard & Real-Time WebGL2 3D Engine
+      // =========================================================================
+      const isSoftwareGl = (function () {
+        try {
+          const probeCanvas = document.createElement('canvas');
+          const probeGl = probeCanvas.getContext('webgl2');
+          if (!probeGl) return true;
+          const ext = probeGl.getExtension('WEBGL_debug_renderer_info');
+          const param = ext ? ext.UNMASKED_RENDERER_WEBGL : probeGl.RENDERER;
+          const gpu = String(probeGl.getParameter(param));
+          const lose = probeGl.getExtension('WEBGL_lose_context');
+          if (lose) lose.loseContext();
+          return /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu);
+        } catch (_e) {
+          return true;
+        }
+      })();
+
+      const gl = canvasEl.getContext('webgl2', {
+        antialias: !isSoftwareGl,
+        alpha: true,
+        powerPreference: 'high-performance'
+      });
+
+      const VS_SOURCE = `#version 300 es
+        precision highp float;
+        layout(location = 0) in vec3 aPosition;
+        layout(location = 1) in vec3 aNormal;
+        layout(location = 2) in vec2 aUv;
+
+        uniform mat4 uModel;
+        uniform mat4 uViewProj;
+
+        out vec3 vWorldPos;
+        out vec3 vNormal;
+        out vec2 vUv;
+
+        void main() {
+          vec4 worldPos = uModel * vec4(aPosition, 1.0);
+          vWorldPos = worldPos.xyz;
+          vNormal = mat3(uModel) * aNormal;
+          vUv = aUv;
+          gl_Position = uViewProj * worldPos;
+        }
+      `;
+
+      const FS_SOURCE = `#version 300 es
+        precision highp float;
+
+        in vec3 vWorldPos;
+        in vec3 vNormal;
+        in vec2 vUv;
+
+        uniform vec3 uCameraPos;
+        uniform vec3 uBaseColor;
+        uniform float uRoughness;
+        uniform float uMetalness;
+        uniform vec3 uEmissive;
+        uniform float uOpacity;
+        uniform int uUseTex;
+        uniform sampler2D uTex;
+
+        uniform vec3 uLedWorldPos;
+        uniform vec3 uLedColor;
+        uniform float uLedIntensity;
+
+        out vec4 outColor;
+
+        vec3 srgbToLinear(vec3 c) {
+          return pow(max(c, vec3(0.0)), vec3(2.2));
+        }
+
+        vec3 acesToneMap(vec3 x) {
+          const float a = 2.51;
+          const float b = 0.03;
+          const float c = 2.43;
+          const float d = 0.59;
+          const float e = 0.14;
+          return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+        }
+
+        void main() {
+          vec4 texSample = (uUseTex == 1) ? texture(uTex, vUv) : vec4(1.0);
+          float alpha = texSample.a * uOpacity;
+          if (alpha < 0.01) discard;
+
+          // Unlit soft contact shadow mode when roughness < 0
+          if (uRoughness < 0.0) {
+            outColor = vec4(uBaseColor, alpha);
+            return;
+          }
+
+          vec3 albedo = srgbToLinear(uBaseColor) * ((uUseTex == 1) ? srgbToLinear(texSample.rgb) : vec3(1.0));
+          vec3 N = normalize(vNormal);
+          vec3 V = normalize(uCameraPos - vWorldPos);
+
+          float rough = clamp(uRoughness, 0.06, 1.0);
+          float metal = clamp(uMetalness, 0.0, 1.0);
+          vec3 F0 = mix(vec3(0.04), albedo, metal);
+          vec3 diffuseColor = albedo * (1.0 - metal);
+
+          // Warm/Cool Hemisphere ambient fill
+          float hemiMix = N.y * 0.5 + 0.5;
+          vec3 skyCol = srgbToLinear(vec3(0.32, 0.35, 0.45));
+          vec3 groundCol = srgbToLinear(vec3(0.24, 0.16, 0.12));
+          vec3 ambient = mix(groundCol, skyCol, hemiMix) * diffuseColor * 0.95;
+
+          // Light 1: Warm Studio Key Light
+          vec3 L1 = normalize(vec3(0.40, 0.72, 0.66));
+          vec3 H1 = normalize(V + L1);
+          float ndl1 = max(dot(N, L1), 0.0);
+          float specPow = mix(128.0, 6.0, rough * rough);
+          float spec1 = pow(max(dot(N, H1), 0.0), specPow) * (1.0 - rough * 0.72);
+          vec3 keyCol = vec3(1.32, 1.21, 1.08);
+          vec3 light1 = (diffuseColor * (1.0 / 3.14159) + F0 * spec1 * 1.6) * keyCol * ndl1;
+
+          // Light 2: Cool Left Rim / Fill Light
+          vec3 L2 = normalize(vec3(-0.66, 0.44, 0.42));
+          vec3 H2 = normalize(V + L2);
+          float ndl2 = max(dot(N, L2), 0.0);
+          float spec2 = pow(max(dot(N, H2), 0.0), specPow) * (1.0 - rough * 0.75);
+          vec3 fillCol = vec3(0.42, 0.52, 0.72);
+          vec3 light2 = (diffuseColor * (1.0 / 3.14159) + F0 * spec2 * 1.1) * fillCol * ndl2;
+
+          // Procedural Studio Reflection for bevels, glossy labels & gold pins
+          vec3 R = reflect(-V, N);
+          float studioBand = smoothstep(0.15, 0.85, R.y) * 0.32 + smoothstep(0.65, 0.98, R.z) * 0.18;
+          float fresnel = pow(1.0 - max(dot(N, V), 0.0), 4.0);
+          vec3 envSpec = mix(F0, vec3(1.0), fresnel * 0.5) * studioBand * (1.0 - rough * 0.82);
+
+          // Dynamic Console Power LED Point Light Spill
+          vec3 ledVec = uLedWorldPos - vWorldPos;
+          float ledDist = length(ledVec);
+          vec3 Lled = ledVec / max(ledDist, 0.001);
+          float atten = uLedIntensity / (1.0 + 3.2 * ledDist + 6.5 * ledDist * ledDist);
+          float ndlLed = max(dot(N, Lled), 0.0);
+          vec3 ledContribution = (diffuseColor + F0 * 0.6) * srgbToLinear(uLedColor) * ndlLed * atten;
+
+          vec3 linearColor = ambient + light1 + light2 + envSpec + ledContribution + srgbToLinear(uEmissive) * 2.2;
+          vec3 mapped = acesToneMap(linearColor * 1.12);
+          vec3 gammaOut = pow(mapped, vec3(1.0 / 2.2));
+
+          outColor = vec4(gammaOut, alpha);
+        }
+      `;
+
+      // Hub & 3D Scene State
+      const state = {
+        activeCategory: 'All',
+        searchQuery: '',
+        hoveredGameId: null,
+        slottedGameId: null,
+        animMode: 'idle', // 'idle' | 'dragging' | 'returning' | 'inserting' | 'ctrl-inserting' | 'shelf-inserting' | 'seated' | 'ejecting'
+        animGameId: null,
+        animCtrlSide: 'left',
+        animProgress: 0,
+        animStartTime: 0,
+        insertDurationMs: SNAP_INSERT_MS,
+        clickSoundPlayed: false,
+        dragCenter: { cx: 0, cy: 0, cz: 0, freeRotX: 0, freeRotY: 0, freeRotZ: 0, rotX: 0, rotY: 0, rotZ: 0 },
+        dragTarget: [0, 0, 0],
+        snapStartPose: { cx: 0, cy: 0, cz: 0, rotX: 0, rotY: 0, rotZ: 0 },
+        grabOffsetX: 0,
+        grabOffsetY: 0,
+        dragStartClientX: 0,
+        dragStartClientY: 0,
+        dragStartTimeMs: 0,
+        dragMaxTravelPx: 0,
+        holdRotateProgress: 0,
+        lastHoldTickMs: 0,
+        ledState: 'off',
+        powerPress: 0,
+        ejectPress: 0,
+        hoveredCtrlBtn: null, // 'left' | 'right' | null
+        ctrlLeftPress: 0,
+        ctrlRightPress: 0,
+        cameraShake: 0,
+        pointerNdcX: 0,
+        pointerNdcY: 0,
+        camParallaxX: 0,
+        camParallaxY: 0,
+        displacedCartridges: [],
+        timers: []
+      };
+
+      function clearPendingTimers() {
+        while (state.timers.length > 0) {
+          clearTimeout(state.timers.pop());
+        }
+      }
+
+      function setLedState(led) {
+        state.ledState = led;
+        powerLedEl.setAttribute('data-led', led);
+        const labelMap = {
+          off: 'Power LED off',
+          red: 'Power LED red: slotting cartridge into 3D console',
+          green: 'Power LED green: cartridge seated and running'
+        };
+        powerLedEl.setAttribute('aria-label', labelMap[led] || 'Power LED');
+      }
+
+      // Initialize WebGL2 Buffers, Textures & Composite 3D Meshes
+      let glProgram = null;
+      let uniforms = null;
+      let unitBoxVao = null;
+      let unitBoxIndexCount = 0;
+      let woodTex = null;
+      let doorTex = null;
+      let shadowTex = null;
+      const cartridgeTextures = {};
+      const cartridgeRuntime = {};
+
+      GAMES.concat(CONTROLLER_CARTRIDGES).forEach(function (g) {
+        cartridgeRuntime[g.id] = {
+          shelfX: g.isControllerPak ? 2.55 : 0,
+          shelfY: g.isControllerPak ? -1.86 : 0,
+          shelfZ: g.isControllerPak ? 1.68 : 0,
+          baseRotY: g.isControllerPak ? -0.30 : -0.18,
+          hoverLift: 0,
+          hoverTiltX: 0,
+          hoverTiltY: 0,
+          worldMat: mat4Create()
+        };
+      });
+
+      function compileShader(type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          console.error(gl.getShaderInfoLog(shader));
+          gl.deleteShader(shader);
+          return null;
+        }
+        return shader;
+      }
+
+      function uploadCanvasTexture(canvas, pixelated) {
+        const tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+        if (pixelated) {
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        } else {
+          gl.generateMipmap(gl.TEXTURE_2D);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+          const anisoExt =
+            gl.getExtension('EXT_texture_filter_anisotropic') ||
+            gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic');
+          if (anisoExt) {
+            const maxAniso = gl.getParameter(anisoExt.MAX_TEXTURE_MAX_ANISOTROPY_EXT) || 4;
+            gl.texParameterf(gl.TEXTURE_2D, anisoExt.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, maxAniso));
+          }
+        }
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        return tex;
+      }
+
+      function rebuildCartridgeTextures() {
+        if (!gl) return;
+        GAMES.forEach(function (game, idx) {
+          if (cartridgeTextures[game.id]) {
+            gl.deleteTexture(cartridgeTextures[game.id]);
+          }
+          cartridgeTextures[game.id] = uploadCanvasTexture(
+            buildCartridgeLabelCanvas(game, idx),
+            false
+          );
+        });
+        CONTROLLER_CARTRIDGES.forEach(function (pak, idx) {
+          if (cartridgeTextures[pak.id]) {
+            gl.deleteTexture(cartridgeTextures[pak.id]);
+          }
+          cartridgeTextures[pak.id] = uploadCanvasTexture(
+            buildCartridgeLabelCanvas(pak, GAMES.length + idx),
+            false
+          );
+        });
+        if (doorTex) gl.deleteTexture(doorTex);
+        doorTex = uploadCanvasTexture(buildConsoleDoorCanvas(), false);
+      }
+
+      function initWebGL() {
+        if (!gl) return;
+        const vs = compileShader(gl.VERTEX_SHADER, VS_SOURCE);
+        const fs = compileShader(gl.FRAGMENT_SHADER, FS_SOURCE);
+        glProgram = gl.createProgram();
+        gl.attachShader(glProgram, vs);
+        gl.attachShader(glProgram, fs);
+        gl.linkProgram(glProgram);
+
+        uniforms = {
+          uModel: gl.getUniformLocation(glProgram, 'uModel'),
+          uViewProj: gl.getUniformLocation(glProgram, 'uViewProj'),
+          uCameraPos: gl.getUniformLocation(glProgram, 'uCameraPos'),
+          uBaseColor: gl.getUniformLocation(glProgram, 'uBaseColor'),
+          uRoughness: gl.getUniformLocation(glProgram, 'uRoughness'),
+          uMetalness: gl.getUniformLocation(glProgram, 'uMetalness'),
+          uEmissive: gl.getUniformLocation(glProgram, 'uEmissive'),
+          uOpacity: gl.getUniformLocation(glProgram, 'uOpacity'),
+          uUseTex: gl.getUniformLocation(glProgram, 'uUseTex'),
+          uTex: gl.getUniformLocation(glProgram, 'uTex'),
+          uLedWorldPos: gl.getUniformLocation(glProgram, 'uLedWorldPos'),
+          uLedColor: gl.getUniformLocation(glProgram, 'uLedColor'),
+          uLedIntensity: gl.getUniformLocation(glProgram, 'uLedIntensity')
+        };
+
+        const box = createBoxGeometry(1, 1, 1, 0, 0, 0);
+        unitBoxIndexCount = box.indices.length;
+        unitBoxVao = gl.createVertexArray();
+        gl.bindVertexArray(unitBoxVao);
+
+        const posBuf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, box.positions, gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+
+        const normBuf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, normBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, box.normals, gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(1);
+        gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+
+        const uvBuf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, uvBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, box.uvs, gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(2);
+        gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
+
+        const idxBuf = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, box.indices, gl.STATIC_DRAW);
+
+        gl.bindVertexArray(null);
+
+        woodTex = uploadCanvasTexture(buildWoodTextureCanvas(), false);
+        shadowTex = uploadCanvasTexture(buildSoftShadowCanvas(), false);
+        rebuildCartridgeTextures();
+
+        gl.enable(gl.DEPTH_TEST);
+        gl.enable(gl.CULL_FACE);
+        gl.cullFace(gl.BACK);
+      }
+
+      // Pre-allocated scratch matrices (Zero GC inside render loop)
+      const _projMat = mat4Create();
+      const _viewMat = mat4Create();
+      const _vpMat = mat4Create();
+      const _partMat = mat4Create();
+      const _consoleBaseMat = mat4Create();
+      const _doorPivotMat = mat4Create();
+      const _rearDoorPivotMat = mat4Create();
+      const _displacedMat = mat4Create();
+      const _ctrlBaseMat = mat4Create();
+      const _eye = [0, 0.55, 9.6];
+      const _target = [0, -0.25, 0];
+      const _up = [0, 1, 0];
+      const _projPt = [0, 0];
+
+      // Console anchor coordinates in 3D world space
+      const CONSOLE_POS = [0, -2.06, 1.15];
+      const CONSOLE_SLOT_POS = [0, -1.53, 1.12];
+
+      function drawBoxPart(parentMat, lx, ly, lz, sx, sy, sz, colorRgb, rough, metal, tex, emissiveRgb, opacity) {
+        mat4Translate(_partMat, parentMat, lx, ly, lz);
+        mat4Scale(_partMat, _partMat, sx, sy, sz);
+        gl.uniformMatrix4fv(uniforms.uModel, false, _partMat);
+        gl.uniform3fv(uniforms.uBaseColor, colorRgb);
+        gl.uniform1f(uniforms.uRoughness, rough);
+        gl.uniform1f(uniforms.uMetalness, metal);
+        gl.uniform3fv(uniforms.uEmissive, emissiveRgb || [0, 0, 0]);
+        gl.uniform1f(uniforms.uOpacity, opacity !== undefined ? opacity : 1.0);
+        if (tex) {
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, tex);
+          gl.uniform1i(uniforms.uTex, 0);
+          gl.uniform1i(uniforms.uUseTex, 1);
+        } else {
+          gl.uniform1i(uniforms.uUseTex, 0);
+        }
+        gl.drawElements(gl.TRIANGLES, unitBoxIndexCount, gl.UNSIGNED_SHORT, 0);
+      }
+
+      // Material Palette (sRGB 0..1)
+      const COL_CART_BODY = [0.74, 0.745, 0.79];
+      const COL_CART_DARK = [0.53, 0.54, 0.61];
+      const COL_CART_RIDGE = [0.64, 0.65, 0.71];
+      const COL_WELL_DARK = [0.11, 0.11, 0.16];
+      const COL_GOLD_PIN = [0.95, 0.74, 0.14];
+
+      const COL_NES_TOP = [0.80, 0.81, 0.85];
+      const COL_NES_BOT = [0.33, 0.34, 0.41];
+      const COL_NES_STRIPE = [0.10, 0.105, 0.14];
+      const COL_NES_BTN = [0.69, 0.70, 0.76];
+      const COL_NES_RED = [0.92, 0.22, 0.22];
+      const COL_WOOD_TRIM = [0.44, 0.30, 0.20];
+      const COL_IRON = [0.16, 0.15, 0.16];
+      const COL_DESK = [0.34, 0.23, 0.16];
+      const COL_WHITE = [1.0, 1.0, 1.0];
+
+      // Composite 9-Part 3D NES Cartridge Model (pivoted at bottom-center y=0)
+      function render3DCartridge(rootMat, game) {
+        const tex = cartridgeTextures[game.id];
+
+        // 1. Main Molded Grey ABS Body (lower & mid section)
+        drawBoxPart(rootMat, 0, 0.56, 0, 1.02, 1.12, 0.17, COL_CART_BODY, 0.46, 0.05, null);
+
+        // 2. Stepped Top Left Shoulder + Right Tab (forming physical top-right notch cutout!)
+        drawBoxPart(rootMat, -0.17, 1.165, 0, 0.68, 0.09, 0.17, COL_CART_BODY, 0.44, 0.05, null);
+        drawBoxPart(rootMat, 0.45, 1.165, 0, 0.12, 0.09, 0.17, COL_CART_BODY, 0.44, 0.05, null);
+        // Recessed notch floor
+        drawBoxPart(rootMat, 0.28, 1.125, 0, 0.22, 0.025, 0.15, COL_CART_DARK, 0.68, 0.04, null);
+
+        // 3. Top Pull-Handle Recess Block
+        drawBoxPart(rootMat, -0.10, 1.175, 0, 0.44, 0.075, 0.11, COL_CART_DARK, 0.66, 0.04, null);
+
+        // 4. Left Spine 3D Extruded Grip Ridges (6 protruding ribs)
+        for (let r = 0; r < 6; r++) {
+          const ry = 0.20 + r * 0.165;
+          drawBoxPart(rootMat, -0.435, ry, 0, 0.17, 0.075, 0.192, COL_CART_RIDGE, 0.62, 0.06, null);
+        }
+
+        // 5. Recessed Label Frame Bezel
+        drawBoxPart(rootMat, 0.07, 0.62, 0.076, 0.76, 0.88, 0.032, COL_CART_DARK, 0.72, 0.05, null);
+
+        // 6. Glossy Printed Game Label (with crisp 16x16 pixel art + Press Start 2P title + accent tag)
+        drawBoxPart(rootMat, 0.07, 0.62, 0.094, 0.71, 0.83, 0.006, COL_WHITE, 0.20, 0.02, tex, [0.06, 0.06, 0.08]);
+
+        // 7. Top Spine Accent Strip (visible when cartridge pitches horizontal into console!)
+        const accentRgb = hexToRgb01(game.accent);
+        drawBoxPart(rootMat, 0.07, 1.05, 0.055, 0.71, 0.03, 0.09, accentRgb, 0.25, 0.04, null);
+
+        // 8. Bottom Thumb-Pull Indent
+        drawBoxPart(rootMat, 0.07, 0.095, 0.078, 0.22, 0.085, 0.025, COL_CART_DARK, 0.65, 0.05, null);
+
+        // 9. Underside Recessed Edge Slot + Metallic Gold 72-Pin Connector
+        drawBoxPart(rootMat, 0, 0.02, 0, 0.86, 0.038, 0.11, COL_WELL_DARK, 0.85, 0.05, null);
+        drawBoxPart(rootMat, 0, 0.015, 0, 0.74, 0.022, 0.03, COL_GOLD_PIN, 0.22, 0.88, null);
+      }
+
+      // Composite 12-Part 3D Front-Loading NES Console + 5-Part 3D NES Controller
+      function render3DConsoleAndDesk(doorAngle, trayDrop, powerPress, ejectPress, rearDoorAngle) {
+        // 3D Walnut Desk Surface
+        mat4Identity(_consoleBaseMat);
+        drawBoxPart(_consoleBaseMat, 0, -2.23, 1.10, 13.5, 0.30, 3.6, COL_DESK, 0.60, 0.04, woodTex);
+        drawBoxPart(_consoleBaseMat, 0, -2.12, 2.92, 13.5, 0.10, 0.08, COL_WOOD_TRIM, 0.40, 0.05, null);
+
+        // Soft Contact Shadow beneath Console & Controller
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.depthMask(false);
+        drawBoxPart(_consoleBaseMat, 0, -2.075, 1.15, 3.85, 0.004, 2.48, [0, 0, 0], -1.0, 0, shadowTex, null, 0.82);
+        drawBoxPart(_consoleBaseMat, 2.52, -2.075, 1.66, 1.36, 0.004, 0.80, [0, 0, 0], -1.0, 0, shadowTex, null, 0.70);
+        gl.depthMask(true);
+        gl.disable(gl.BLEND);
+
+        // Position Console Root
+        mat4Identity(_consoleBaseMat);
+        mat4Translate(_consoleBaseMat, _consoleBaseMat, CONSOLE_POS[0], CONSOLE_POS[1], CONSOLE_POS[2]);
+
+        // 1. Lower Dark-Grey Chamfered Base
+        drawBoxPart(_consoleBaseMat, 0, 0.19, -0.04, 3.22, 0.38, 2.08, COL_NES_BOT, 0.56, 0.06, null);
+        drawBoxPart(_consoleBaseMat, 0, 0.36, 0.0, 3.38, 0.12, 2.18, COL_NES_BOT, 0.54, 0.06, null);
+
+        // 2. Upper Light-Grey Housing built around a Full-Depth Pass-Through Cartridge Bay!
+        // Left wing (-1.70 .. -0.72), Right wing (+0.72 .. +1.70), Full-depth Upper Brow Roof
+        drawBoxPart(_consoleBaseMat, -1.21, 0.64, 0.0, 0.98, 0.48, 2.22, COL_NES_TOP, 0.42, 0.05, null);
+        drawBoxPart(_consoleBaseMat, 1.21, 0.64, 0.0, 0.98, 0.48, 2.22, COL_NES_TOP, 0.42, 0.05, null);
+        drawBoxPart(_consoleBaseMat, 0.0, 0.85, 0.0, 1.46, 0.06, 2.22, COL_NES_TOP, 0.40, 0.05, null);
+
+        // 3. Dark Interior Cartridge Chamber Pass-Through Floor & Hinged Rear Baffle Chute
+        drawBoxPart(_consoleBaseMat, 0.0, 0.43, -0.01, 1.44, 0.06, 2.18, COL_WELL_DARK, 0.85, 0.05, null);
+        mat4Translate(_rearDoorPivotMat, _consoleBaseMat, 0.0, 0.82, -0.46);
+        mat4RotateX(_rearDoorPivotMat, _rearDoorPivotMat, rearDoorAngle || 0);
+        drawBoxPart(_rearDoorPivotMat, 0.0, -0.19, 0.0, 1.42, 0.38, 0.06, COL_WELL_DARK, 0.88, 0.05, null);
+
+        // 4. Articulated Internal ZIF Spring Cradle + Front Guide Rail (visibly drops on lock!)
+        const trayY = 0.485 + trayDrop * 0.68;
+        drawBoxPart(
+          _consoleBaseMat,
+          0.0,
+          trayY,
+          0.34,
+          1.24,
+          0.045,
+          1.34,
+          [0.28, 0.30, 0.38],
+          0.48,
+          0.32,
+          null
+        );
+        drawBoxPart(
+          _consoleBaseMat,
+          0.0,
+          trayY + 0.015,
+          0.98,
+          1.24,
+          0.03,
+          0.06,
+          [0.44, 0.46, 0.55],
+          0.36,
+          0.45,
+          null
+        );
+
+        // 5. Iconic Black Ribbed Right-Hand Stripe Band (top & front)
+        drawBoxPart(_consoleBaseMat, 0.94, 0.645, 0.01, 0.30, 0.495, 2.24, COL_NES_STRIPE, 0.32, 0.08, null);
+        drawBoxPart(_consoleBaseMat, 0.94, 0.24, 0.03, 0.30, 0.34, 2.13, COL_NES_STRIPE, 0.34, 0.08, null);
+
+        // 6. Articulated Hinged Front Cartridge Lid Door (pivots cleanly UP above y=0.82 so bay sightline is 100% clear!)
+        mat4Translate(_doorPivotMat, _consoleBaseMat, 0.0, 0.82, 1.09);
+        mat4RotateX(_doorPivotMat, _doorPivotMat, -doorAngle);
+        drawBoxPart(_doorPivotMat, 0.0, -0.18, 0.0, 1.43, 0.36, 0.05, COL_WHITE, 0.36, 0.04, doorTex);
+
+        // 7. Physical 3D POWER & EJECT Buttons on Lower-Left Bezel
+        drawBoxPart(
+          _consoleBaseMat,
+          -1.18,
+          0.25,
+          1.05 - powerPress,
+          0.30,
+          0.13,
+          0.10,
+          COL_NES_BTN,
+          0.44,
+          0.08,
+          null
+        );
+        drawBoxPart(
+          _consoleBaseMat,
+          -0.80,
+          0.25,
+          1.05 - ejectPress,
+          0.30,
+          0.13,
+          0.10,
+          COL_NES_BTN,
+          0.44,
+          0.08,
+          null
+        );
+
+        // 8. 3D Emissive Power LED Lens
+        let ledBase = [0.16, 0.15, 0.19];
+        let ledEmit = [0, 0, 0];
+        if (state.ledState === 'red') {
+          ledBase = [1.0, 0.28, 0.28];
+          ledEmit = [1.0, 0.15, 0.15];
+        } else if (state.ledState === 'green') {
+          ledBase = [0.35, 1.0, 0.55];
+          ledEmit = [0.18, 0.95, 0.42];
+        }
+        drawBoxPart(_consoleBaseMat, -1.43, 0.25, 1.06, 0.085, 0.085, 0.06, ledBase, 0.16, 0.05, null, ledEmit);
+
+        // 9. Dual 7-Pin Controller Ports on Front-Right
+        drawBoxPart(_consoleBaseMat, 1.30, 0.26, 1.05, 0.18, 0.24, 0.08, COL_NES_STRIPE, 0.65, 0.06, null);
+        drawBoxPart(_consoleBaseMat, 1.52, 0.26, 1.05, 0.18, 0.24, 0.08, COL_NES_STRIPE, 0.65, 0.06, null);
+
+        // 10. Interactive 3D NES Controller on Desk (Left B & Right A buttons)
+        mat4Identity(_ctrlBaseMat);
+        mat4Translate(_ctrlBaseMat, _ctrlBaseMat, 2.62, -2.05, 1.78);
+        mat4RotateY(_ctrlBaseMat, _ctrlBaseMat, -0.28);
+        mat4RotateX(_ctrlBaseMat, _ctrlBaseMat, 0.21);
+        // Shell, black faceplate, cross D-pad, square A/B bezels, interactive Left (B) & Right (A) red buttons
+        drawBoxPart(_ctrlBaseMat, 0, 0.078, 0, 1.52, 0.156, 0.68, COL_NES_TOP, 0.42, 0.05, null);
+        drawBoxPart(_ctrlBaseMat, 0, 0.162, 0.02, 1.38, 0.018, 0.56, COL_NES_STRIPE, 0.55, 0.05, null);
+        drawBoxPart(_ctrlBaseMat, -0.43, 0.186, 0.02, 0.26, 0.036, 0.084, [0.22, 0.23, 0.28], 0.5, 0.05, null);
+        drawBoxPart(_ctrlBaseMat, -0.43, 0.186, 0.02, 0.084, 0.036, 0.26, [0.22, 0.23, 0.28], 0.5, 0.05, null);
+        drawBoxPart(_ctrlBaseMat, 0.12, 0.172, 0.06, 0.21, 0.014, 0.21, COL_NES_TOP, 0.42, 0.05, null);
+        drawBoxPart(_ctrlBaseMat, 0.48, 0.172, 0.06, 0.21, 0.014, 0.21, COL_NES_TOP, 0.42, 0.05, null);
+
+        const leftHoverEmit = state.hoveredCtrlBtn === 'left' ? [0.52, 0.09, 0.09] : [0, 0, 0];
+        const rightHoverEmit = state.hoveredCtrlBtn === 'right' ? [0.52, 0.09, 0.09] : [0, 0, 0];
+        drawBoxPart(
+          _ctrlBaseMat,
+          0.12,
+          0.194 - state.ctrlLeftPress,
+          0.06,
+          0.164,
+          0.050,
+          0.164,
+          COL_NES_RED,
+          0.20,
+          0.05,
+          null,
+          leftHoverEmit
+        );
+        drawBoxPart(
+          _ctrlBaseMat,
+          0.48,
+          0.194 - state.ctrlRightPress,
+          0.06,
+          0.164,
+          0.050,
+          0.164,
+          COL_NES_RED,
+          0.20,
+          0.05,
+          null,
+          rightHoverEmit
+        );
+      }
+
+      // Compute Responsive 3D Shelf Layout & Analytical Frustum Bounds
+      let activeShelves = [];
+      let visibleGamesCache = [];
+      let sceneMaxPlankWidth = 8.4;
+      let sceneTopShelfY = 1.1;
+
+      function computeShelfLayout() {
+        const rect = stageMainEl.getBoundingClientRect();
+        const aspect = Math.max(0.42, rect.width / Math.max(1, rect.height));
+        visibleGamesCache = filterGames(GAMES, state.activeCategory, state.searchQuery);
+
+        let cols = 6;
+        if (aspect < 0.78) {
+          cols = 3;
+        } else if (aspect < 1.18) {
+          cols = 4;
+        }
+
+        const total = visibleGamesCache.length;
+        if (total > 0 && total < cols) {
+          cols = total;
+        }
+        const rows = Math.max(1, Math.ceil(total / Math.max(1, cols)));
+
+        const xSpacing = cols <= 3 ? 1.24 : cols === 4 ? 1.32 : 1.36;
+        const rowSpacingY = rows >= 4 ? 1.44 : 1.50;
+        const bottomShelfY = rows === 1 ? 0.18 : -0.38;
+        const rowTopY = bottomShelfY + (rows - 1) * rowSpacingY;
+        const shelfZ = -0.15;
+
+        sceneTopShelfY = rowTopY;
+        sceneMaxPlankWidth = 4.2;
+        activeShelves = [];
+
+        for (let r = 0; r < rows; r++) {
+          const countInRow = Math.min(cols, total - r * cols);
+          if (countInRow <= 0) continue;
+          const shelfY = rowTopY - r * rowSpacingY;
+          const plankWidth = Math.max(2.6, countInRow * xSpacing + 0.85);
+          if (plankWidth > sceneMaxPlankWidth) sceneMaxPlankWidth = plankWidth;
+          activeShelves.push({ y: shelfY, z: shelfZ, width: plankWidth });
+
+          for (let c = 0; c < countInRow; c++) {
+            const game = visibleGamesCache[r * cols + c];
+            const rt = cartridgeRuntime[game.id];
+            rt.shelfX = (c - (countInRow - 1) * 0.5) * xSpacing;
+            rt.shelfY = shelfY + 0.08;
+            rt.shelfZ = shelfZ + 0.04;
+            rt.baseRotY = -0.18 + (c - (countInRow - 1) * 0.5) * -0.025;
+          }
+        }
+      }
+
+      function render3DShelves() {
+        mat4Identity(_consoleBaseMat);
+        for (let i = 0; i < activeShelves.length; i++) {
+          const sh = activeShelves[i];
+          // Walnut Shelf Plank + Front Bevel Lip + Iron Wall Brackets
+          drawBoxPart(_consoleBaseMat, 0, sh.y, sh.z, sh.width, 0.14, 0.78, COL_WOOD_TRIM, 0.58, 0.04, woodTex);
+          drawBoxPart(_consoleBaseMat, 0, sh.y + 0.02, sh.z + 0.39, sh.width, 0.10, 0.04, [0.46, 0.32, 0.21], 0.38, 0.05, null);
+          const bx = sh.width * 0.38;
+          drawBoxPart(_consoleBaseMat, -bx, sh.y - 0.18, sh.z - 0.18, 0.09, 0.26, 0.36, COL_IRON, 0.5, 0.65, null);
+          drawBoxPart(_consoleBaseMat, bx, sh.y - 0.18, sh.z - 0.18, 0.09, 0.26, 0.36, COL_IRON, 0.5, 0.65, null);
+        }
+      }
+
+      // Sync Accessible Semantic DOM Hit-Buttons over Projected 3D Cartridges
+      const hitButtonsById = {};
+
+      function rebuildHitButtonsDOM() {
+        hitLayerEl.innerHTML = '';
+        Object.keys(hitButtonsById).forEach(function (k) {
+          delete hitButtonsById[k];
+        });
+
+        const noun = visibleGamesCache.length === 1 ? 'Cartridge' : 'Cartridges';
+        shelfCountEl.textContent = visibleGamesCache.length + ' ' + noun;
+
+        if (visibleGamesCache.length === 0) {
+          emptyShelfEl.hidden = false;
+          return;
+        }
+        emptyShelfEl.hidden = true;
+
+        visibleGamesCache.forEach(function (game) {
+          const wrapper = document.createElement('div');
+          wrapper.setAttribute('role', 'listitem');
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'cartridge-hit';
+          btn.dataset.gameId = game.id;
+          const tipId = 'blurb-' + game.id;
+          btn.setAttribute('aria-describedby', tipId);
+
+          const tip = document.createElement('span');
+          tip.id = tipId;
+          tip.role = 'tooltip';
+          tip.className = 'cart-tooltip';
+          tip.style.setProperty('--tip-accent', game.accent);
+
+          const tagSpan = document.createElement('span');
+          tagSpan.className = 'cart-tooltip-tag';
+          tagSpan.textContent = game.title + ' · ' + game.category;
+          const blurbSpan = document.createElement('span');
+          blurbSpan.textContent = game.blurb;
+          tip.appendChild(tagSpan);
+          tip.appendChild(blurbSpan);
+          btn.appendChild(tip);
+
+          btn.addEventListener('pointerenter', function () {
+            if (state.animMode !== 'dragging') {
+              state.hoveredGameId = game.id;
+              requestRender();
+            }
+          });
+          btn.addEventListener('pointerleave', function () {
+            if (state.hoveredGameId === game.id) {
+              state.hoveredGameId = null;
+              requestRender();
+            }
+          });
+          btn.addEventListener('focus', function () {
+            if (state.animMode !== 'dragging') {
+              state.hoveredGameId = game.id;
+              requestRender();
+            }
+          });
+          btn.addEventListener('blur', function () {
+            if (state.hoveredGameId === game.id) {
+              state.hoveredGameId = null;
+              requestRender();
+            }
+          });
+          btn.addEventListener('pointerdown', function (e) {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            startCartridgeDrag(game, e);
+          });
+          btn.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              triggerShelfCartridgeClickInsert(game);
+            }
+          });
+
+          wrapper.appendChild(btn);
+          hitLayerEl.appendChild(wrapper);
+          hitButtonsById[game.id] = btn;
+        });
+
+        syncHitButtonsState();
+        const rect = stageMainEl.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          updateProjectedHitBoxes(rect.width, rect.height);
+        }
+      }
+
+      function isInsertionBusyMode(mode) {
+        return (
+          mode === 'inserting' ||
+          mode === 'ctrl-inserting' ||
+          mode === 'shelf-inserting'
+        );
+      }
+
+      function getDisplacedCartridgeEntry(id) {
+        for (let i = 0; i < state.displacedCartridges.length; i++) {
+          if (state.displacedCartridges[i].id === id) {
+            return state.displacedCartridges[i];
+          }
+        }
+        return null;
+      }
+
+      function isCartridgeDisplaced(id) {
+        return getDisplacedCartridgeEntry(id) !== null;
+      }
+
+      function removeDisplacedCartridge(id) {
+        for (let i = state.displacedCartridges.length - 1; i >= 0; i--) {
+          if (state.displacedCartridges[i].id === id) {
+            state.displacedCartridges.splice(i, 1);
+          }
+        }
+      }
+
+      function getCurrentSlottedCenterPose(now) {
+        if (!state.slottedGameId) return null;
+        if (state.animMode === 'inserting' && state.animGameId === state.slottedGameId) {
+          const dur = state.insertDurationMs || SNAP_INSERT_MS;
+          const p = Math.min(1, Math.max(0, (now - state.animStartTime) / dur));
+          return computeSnapInsertPose(p, state.snapStartPose, CONSOLE_SLOT_POS);
+        }
+        if (state.animMode === 'ctrl-inserting' && state.animGameId === state.slottedGameId) {
+          const dur = state.insertDurationMs || CTRL_INSERT_MS;
+          const p = Math.min(1, Math.max(0, (now - state.animStartTime) / dur));
+          return computeControllerInsertPose(p, state.animCtrlSide, CONSOLE_SLOT_POS);
+        }
+        if (state.animMode === 'shelf-inserting' && state.animGameId === state.slottedGameId) {
+          const dur = state.insertDurationMs || SHELF_CLICK_INSERT_MS;
+          const p = Math.min(1, Math.max(0, (now - state.animStartTime) / dur));
+          const rt = cartridgeRuntime[state.slottedGameId];
+          const pose = computeInsertionPose(
+            p,
+            [rt.shelfX, rt.shelfY, rt.shelfZ, rt.baseRotY],
+            CONSOLE_SLOT_POS
+          );
+          const c = cartridgeRootToCenter(pose.x, pose.y, pose.z, pose.rotX, pose.rotY, pose.rotZ);
+          return {
+            cx: c[0],
+            cy: c[1],
+            cz: c[2],
+            rotX: pose.rotX,
+            rotY: pose.rotY,
+            rotZ: pose.rotZ
+          };
+        }
+        return null;
+      }
+
+      function beginDisplacedCartridgeReturn(outgoingId, now, playUnlatchSound) {
+        const outgoingGame = getCartridgeById(outgoingId);
+        if (!outgoingGame) return;
+        const startPose = getCurrentSlottedCenterPose(now);
+        removeDisplacedCartridge(outgoingId);
+        state.displacedCartridges.push({
+          id: outgoingId,
+          isControllerPak: Boolean(outgoingGame.isControllerPak),
+          side: outgoingGame.side || 'left',
+          startTime: now,
+          startPose: startPose
+        });
+        if (playUnlatchSound) {
+          playClickSound('eject');
+        }
+      }
+
+      function syncHitButtonsState() {
+        visibleGamesCache.forEach(function (game) {
+          const btn = hitButtonsById[game.id];
+          if (!btn) return;
+          const isDisplaced = isCartridgeDisplaced(game.id);
+          const isLockedAway =
+            isDisplaced ||
+            (state.slottedGameId === game.id &&
+              (isInsertionBusyMode(state.animMode) ||
+                state.animMode === 'seated' ||
+                state.animMode === 'dragging' ||
+                state.animMode === 'returning')) ||
+            (state.animGameId === game.id &&
+              (state.animMode === 'dragging' ||
+                isInsertionBusyMode(state.animMode) ||
+                state.animMode === 'ejecting'));
+          btn.classList.toggle('is-slotted', isLockedAway);
+          btn.setAttribute(
+            'aria-label',
+            game.title +
+              ' (' +
+              game.category +
+              ')' +
+              (isLockedAway ? ' — in console' : ' — click or drag to console')
+          );
+        });
+      }
+
+      const LOCAL_BBOX_CORNERS = [
+        [-0.51, 0.0, -0.09],
+        [0.51, 0.0, -0.09],
+        [-0.51, 1.21, -0.09],
+        [0.51, 1.21, -0.09],
+        [-0.51, 0.0, 0.09],
+        [0.51, 0.0, 0.09],
+        [-0.51, 1.21, 0.09],
+        [0.51, 1.21, 0.09]
+      ];
+
+      const CONSOLE_DOOR_CORNERS = [
+        [-0.75, 0.44, 1.09],
+        [0.75, 0.44, 1.09],
+        [-0.75, 0.82, 1.09],
+        [0.75, 0.82, 1.09]
+      ];
+
+      function updateProjectedHitBoxes(vpW, vpH) {
+        for (let i = 0; i < visibleGamesCache.length; i++) {
+          const game = visibleGamesCache[i];
+          const btn = hitButtonsById[game.id];
+          if (!btn) continue;
+
+          const rt = cartridgeRuntime[game.id];
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          let valid = false;
+
+          // Project shelf resting bounds so hover hit-box never jitters while lifting
+          for (let c = 0; c < LOCAL_BBOX_CORNERS.length; c++) {
+            const lc = LOCAL_BBOX_CORNERS[c];
+            const wx = rt.shelfX + lc[0];
+            const wy = rt.shelfY + lc[1];
+            const wz = rt.shelfZ + lc[2];
+            if (projectPoint(wx, wy, wz, _vpMat, vpW, vpH, _projPt)) {
+              valid = true;
+              if (_projPt[0] < minX) minX = _projPt[0];
+              if (_projPt[0] > maxX) maxX = _projPt[0];
+              if (_projPt[1] < minY) minY = _projPt[1];
+              if (_projPt[1] > maxY) maxY = _projPt[1];
+            }
+          }
+
+          if (valid) {
+            const clampedLeft = Math.max(4, Math.round(minX));
+            const clampedTop = Math.max(4, Math.round(minY));
+            const clampedRight = Math.min(vpW - 4, Math.round(maxX));
+            const clampedBottom = Math.min(vpH - 4, Math.round(maxY));
+            const width = Math.max(44, clampedRight - clampedLeft);
+            const height = Math.max(44, clampedBottom - clampedTop);
+            btn.style.left = clampedLeft + 'px';
+            btn.style.top = clampedTop + 'px';
+            btn.style.width = width + 'px';
+            btn.style.height = height + 'px';
+            btn.classList.toggle('tooltip-below', clampedTop < 92);
+          }
+        }
+
+        if (consoleDropProbeEl) {
+          let cMinX = Infinity, cMinY = Infinity, cMaxX = -Infinity, cMaxY = -Infinity;
+          let cValid = false;
+          for (let i = 0; i < CONSOLE_DOOR_CORNERS.length; i++) {
+            const dc = CONSOLE_DOOR_CORNERS[i];
+            if (
+              projectPoint(
+                CONSOLE_POS[0] + dc[0],
+                CONSOLE_POS[1] + dc[1],
+                CONSOLE_POS[2] + dc[2],
+                _vpMat,
+                vpW,
+                vpH,
+                _projPt
+              )
+            ) {
+              cValid = true;
+              if (_projPt[0] < cMinX) cMinX = _projPt[0];
+              if (_projPt[0] > cMaxX) cMaxX = _projPt[0];
+              if (_projPt[1] < cMinY) cMinY = _projPt[1];
+              if (_projPt[1] > cMaxY) cMaxY = _projPt[1];
+            }
+          }
+          if (cValid) {
+            consoleDropProbeEl.style.left = Math.round(cMinX) + 'px';
+            consoleDropProbeEl.style.top = Math.round(cMinY) + 'px';
+            consoleDropProbeEl.style.width = Math.max(24, Math.round(cMaxX - cMinX)) + 'px';
+            consoleDropProbeEl.style.height = Math.max(24, Math.round(cMaxY - cMinY)) + 'px';
+          }
+        }
+
+        // Project 3D Controller Left (B) & Right (A) Red Buttons onto Accessible Overlay Buttons
+        if (ctrlLeftBtnEl && ctrlRightBtnEl) {
+          const lLx = 0.12, lLy = 0.20, lLz = 0.06;
+          const rLx = 0.48, rLy = 0.20, rLz = 0.06;
+          const dLx = -0.43, dLy = 0.19, dLz = 0.02;
+
+          const lWx = _ctrlBaseMat[0] * lLx + _ctrlBaseMat[4] * lLy + _ctrlBaseMat[8] * lLz + _ctrlBaseMat[12];
+          const lWy = _ctrlBaseMat[1] * lLx + _ctrlBaseMat[5] * lLy + _ctrlBaseMat[9] * lLz + _ctrlBaseMat[13];
+          const lWz = _ctrlBaseMat[2] * lLx + _ctrlBaseMat[6] * lLy + _ctrlBaseMat[10] * lLz + _ctrlBaseMat[14];
+
+          const rWx = _ctrlBaseMat[0] * rLx + _ctrlBaseMat[4] * rLy + _ctrlBaseMat[8] * rLz + _ctrlBaseMat[12];
+          const rWy = _ctrlBaseMat[1] * rLx + _ctrlBaseMat[5] * rLy + _ctrlBaseMat[9] * rLz + _ctrlBaseMat[13];
+          const rWz = _ctrlBaseMat[2] * rLx + _ctrlBaseMat[6] * rLy + _ctrlBaseMat[10] * rLz + _ctrlBaseMat[14];
+
+          const dWx = _ctrlBaseMat[0] * dLx + _ctrlBaseMat[4] * dLy + _ctrlBaseMat[8] * dLz + _ctrlBaseMat[12];
+          const dWy = _ctrlBaseMat[1] * dLx + _ctrlBaseMat[5] * dLy + _ctrlBaseMat[9] * dLz + _ctrlBaseMat[13];
+          const dWz = _ctrlBaseMat[2] * dLx + _ctrlBaseMat[6] * dLy + _ctrlBaseMat[10] * dLz + _ctrlBaseMat[14];
+
+          let lxPx = 0, lyPx = 0, rxPx = 0, ryPx = 0, dxPx = 0, dyPx = 0;
+          const lOk = projectPoint(lWx, lWy, lWz, _vpMat, vpW, vpH, _projPt);
+          if (lOk) {
+            lxPx = _projPt[0];
+            lyPx = _projPt[1];
+          }
+          const rOk = projectPoint(rWx, rWy, rWz, _vpMat, vpW, vpH, _projPt);
+          if (rOk) {
+            rxPx = _projPt[0];
+            ryPx = _projPt[1];
+          }
+          const dOk = projectPoint(dWx, dWy, dWz, _vpMat, vpW, vpH, _projPt);
+          if (dOk) {
+            dxPx = _projPt[0];
+            dyPx = _projPt[1];
+          }
+
+          if (lOk && rOk) {
+            const midX = (lxPx + rxPx) * 0.5;
+            const sep = Math.max(18, rxPx - lxPx);
+            const outerPad = Math.min(28, Math.max(20, Math.round(sep * 0.72)));
+            const halfH = Math.min(26, Math.max(22, Math.round(sep * 0.68)));
+
+            const leftX0 = Math.round(lxPx - outerPad);
+            const leftX1 = Math.max(leftX0 + 22, Math.floor(midX - 1));
+            ctrlLeftBtnEl.style.left = leftX0 + 'px';
+            ctrlLeftBtnEl.style.top = Math.round(lyPx - halfH) + 'px';
+            ctrlLeftBtnEl.style.width = (leftX1 - leftX0) + 'px';
+            ctrlLeftBtnEl.style.height = (halfH * 2) + 'px';
+
+            const rightX0 = Math.ceil(midX + 1);
+            const rightX1 = Math.max(rightX0 + 22, Math.round(rxPx + outerPad));
+            ctrlRightBtnEl.style.left = rightX0 + 'px';
+            ctrlRightBtnEl.style.top = Math.round(ryPx - halfH) + 'px';
+            ctrlRightBtnEl.style.width = (rightX1 - rightX0) + 'px';
+            ctrlRightBtnEl.style.height = (halfH * 2) + 'px';
+
+            ctrlScreenBounds.valid = true;
+            ctrlScreenBounds.leftX = dOk ? dxPx - outerPad : leftX0 - 40;
+            ctrlScreenBounds.rightX = rightX1 + 8;
+            ctrlScreenBounds.midBtnX = midX;
+            ctrlScreenBounds.topY = Math.min(dOk ? dyPx : lyPx, lyPx, ryPx) - halfH - 8;
+            ctrlScreenBounds.botY = Math.max(dOk ? dyPx : lyPx, lyPx, ryPx) + halfH + 10;
+          }
+        }
+      }
+
+      const ctrlScreenBounds = {
+        valid: false,
+        leftX: 0,
+        rightX: 0,
+        midBtnX: 0,
+        topY: 0,
+        botY: 0
+      };
+
+      // Unproject 2D pointer screen coordinates onto a smooth 3D carry plane in front of shelves & console
+      function screenClientToCarryWorld(clientX, clientY) {
+        const rect = stageMainEl.getBoundingClientRect();
+        const w = Math.max(1, rect.width);
+        const h = Math.max(1, rect.height);
+        const aspect = w / h;
+        const fovRad = (34 * Math.PI) / 180;
+        const tanHalfFov = Math.tan(fovRad * 0.5);
+
+        const ndcX = Math.max(-1.1, Math.min(1.1, ((clientX - rect.left) / w) * 2 - 1));
+        const ndcY = Math.max(-1.1, Math.min(1.1, 1 - ((clientY - rect.top) / h) * 2));
+
+        let fx = _target[0] - _eye[0];
+        let fy = _target[1] - _eye[1];
+        let fz = _target[2] - _eye[2];
+        const fl = Math.hypot(fx, fy, fz) || 1;
+        fx /= fl; fy /= fl; fz /= fl;
+
+        let rx = fy * _up[2] - fz * _up[1];
+        let ry = fz * _up[0] - fx * _up[2];
+        let rz = fx * _up[1] - fy * _up[0];
+        const rl = Math.hypot(rx, ry, rz) || 1;
+        rx /= rl; ry /= rl; rz /= rl;
+
+        const ux = ry * fz - rz * fy;
+        const uy = rz * fx - rx * fz;
+        const uz = rx * fy - ry * fx;
+
+        const sx = ndcX * tanHalfFov * aspect;
+        const sy = ndcY * tanHalfFov;
+        const dx = fx + rx * sx + ux * sy;
+        const dy = fy + ry * sx + uy * sy;
+        const dz = fz + rz * sx + uz * sy;
+        const safeDz = Math.abs(dz) < 1e-4 ? -1e-4 : dz;
+
+        const tMid = (1.4 - _eye[2]) / safeDz;
+        const wyMid = _eye[1] + tMid * dy;
+        const consoleBlend = smoothstep(0.65, -1.15, wyMid);
+        const mouthStandOffZ = CONSOLE_SLOT_POS[2] + 1.80;
+        const carryZ = 0.55 + (mouthStandOffZ - 0.55) * consoleBlend;
+
+        const tCarry = (carryZ - _eye[2]) / safeDz;
+        const wx = _eye[0] + tCarry * dx;
+        const wy = _eye[1] + tCarry * dy;
+        return [wx, wy, carryZ];
+      }
+
+      // =========================================================================
+      // Render Loop with Software-WebGL Fence Pacing & On-Demand Settling
+      // =========================================================================
+      let renderBusy = false;
+      let renderDirty = false;
+      let loopIdle = true;
+      let lastFrameTime = performance.now();
+
+      function afterDraw(cb) {
+        if (!gl) {
+          cb();
+          return;
+        }
+        const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+        gl.flush();
+        const poll = function () {
+          const status = sync && gl.getSyncParameter(sync, gl.SYNC_STATUS);
+          if (status === gl.UNSIGNALED) {
+            setTimeout(poll, 5);
+          } else {
+            if (sync) gl.deleteSync(sync);
+            setTimeout(cb, 55);
+          }
+        };
+        setTimeout(poll, 5);
+      }
+
+      function stepSimulationAndDraw(now) {
+        const rawDt = (now - lastFrameTime) * 0.001;
+        lastFrameTime = now;
+        const dt = Math.min(0.16, Math.max(0.001, rawDt));
+        let keepAnimating = false;
+
+        const reduceMotion = prefersReducedMotion();
+        const dampFactor = reduceMotion ? 1.0 : 1 - Math.exp(-14 * dt);
+
+        // Smooth camera parallax
+        const targetPx = reduceMotion ? 0 : state.pointerNdcX * 0.24;
+        const targetPy = reduceMotion ? 0 : state.pointerNdcY * 0.11;
+        state.camParallaxX += (targetPx - state.camParallaxX) * dampFactor;
+        state.camParallaxY += (targetPy - state.camParallaxY) * dampFactor;
+        if (
+          Math.abs(targetPx - state.camParallaxX) > 0.0015 ||
+          Math.abs(targetPy - state.camParallaxY) > 0.0015
+        ) {
+          keepAnimating = true;
+        }
+
+        // Camera latch shake decay
+        if (state.cameraShake > 0.001) {
+          state.cameraShake = Math.max(0, state.cameraShake - dt * 3.2);
+          keepAnimating = true;
+        } else {
+          state.cameraShake = 0;
+        }
+
+        // Eject & Controller button spring recovery
+        if (state.ejectPress > 0.001) {
+          state.ejectPress = Math.max(0, state.ejectPress - dt * 0.35);
+          keepAnimating = true;
+        } else {
+          state.ejectPress = 0;
+        }
+        if (state.ctrlLeftPress > 0.001) {
+          state.ctrlLeftPress = Math.max(0, state.ctrlLeftPress - dt * 0.22);
+          keepAnimating = true;
+        } else {
+          state.ctrlLeftPress = 0;
+        }
+        if (state.ctrlRightPress > 0.001) {
+          state.ctrlRightPress = Math.max(0, state.ctrlRightPress - dt * 0.22);
+          keepAnimating = true;
+        } else {
+          state.ctrlRightPress = 0;
+        }
+
+        // Advance Dragging, Returning, Snap-Inserting, Seated, Displaced Rear-Return & Ejecting States
+        let doorAngle = 0;
+        let rearDoorAngle = 0;
+        let trayDrop = 0;
+        let powerPress = 0;
+        let activePose = null;
+        let seatedBackgroundPose = null;
+        const activeDisplacedDraws = [];
+
+        if (state.displacedCartridges.length > 0) {
+          let finishedAnyDisplaced = false;
+          for (let d = state.displacedCartridges.length - 1; d >= 0; d--) {
+            const item = state.displacedCartridges[d];
+            const dispProgress = Math.min(
+              1,
+              Math.max(0, (now - item.startTime) / DISPLACED_RETURN_MS)
+            );
+            if (dispProgress >= 1) {
+              state.displacedCartridges.splice(d, 1);
+              finishedAnyDisplaced = true;
+              continue;
+            }
+            keepAnimating = true;
+            const drt = cartridgeRuntime[item.id];
+            const dPose = computeDisplacedReturnPose(
+              dispProgress,
+              [drt.shelfX, drt.shelfY, drt.shelfZ, drt.baseRotY],
+              CONSOLE_SLOT_POS,
+              {
+                isControllerPak: item.isControllerPak,
+                side: item.side,
+                startPose: item.startPose
+              }
+            );
+            if (!item.isControllerPak) {
+              const stillVisibleOnShelf = visibleGamesCache.some(function (vg) {
+                return vg.id === item.id;
+              });
+              if (!stillVisibleOnShelf) {
+                dPose.scale = Math.max(0.05, 1.0 - 0.85 * smoothstep(0.75, 1.0, dispProgress));
+              }
+            }
+            if (dPose.rearDoorAngle > rearDoorAngle) {
+              rearDoorAngle = dPose.rearDoorAngle;
+            }
+            if (dPose.frontDoorHold > doorAngle) {
+              doorAngle = dPose.frontDoorHold;
+            }
+            if (dPose.trayDrop < trayDrop) {
+              trayDrop = dPose.trayDrop;
+            }
+            activeDisplacedDraws.push({
+              id: item.id,
+              progress: dispProgress,
+              pose: dPose
+            });
+          }
+          if (finishedAnyDisplaced) {
+            syncHitButtonsState();
+          }
+        }
+
+        // Keep an already-seated cartridge visible in the console if user is currently dragging/returning another one
+        if (
+          state.slottedGameId &&
+          state.slottedGameId !== state.animGameId &&
+          (state.animMode === 'seated' || state.animMode === 'dragging' || state.animMode === 'returning')
+        ) {
+          const seatedRt = cartridgeRuntime[state.slottedGameId];
+          seatedBackgroundPose = computeInsertionPose(
+            1.0,
+            [seatedRt.shelfX, seatedRt.shelfY, seatedRt.shelfZ, seatedRt.baseRotY],
+            CONSOLE_SLOT_POS
+          );
+          doorAngle = seatedBackgroundPose.doorAngle;
+          trayDrop = seatedBackgroundPose.trayDrop;
+          powerPress = seatedBackgroundPose.powerPress;
+        }
+
+        if (state.animMode === 'dragging' && state.animGameId) {
+          keepAnimating = true;
+          const holdDt = Math.min(0.08, Math.max(0.001, (now - state.lastHoldTickMs) * 0.001));
+          state.lastHoldTickMs = now;
+
+          const follow = reduceMotion ? 1.0 : 1 - Math.exp(-28 * dt);
+          const vx = state.dragTarget[0] - state.dragCenter.cx;
+          const vy = state.dragTarget[1] - state.dragCenter.cy;
+          state.dragCenter.cx += vx * follow;
+          state.dragCenter.cy += vy * follow;
+          state.dragCenter.cz += (state.dragTarget[2] - state.dragCenter.cz) * follow;
+
+          const prox = evaluateConsoleProximity(
+            state.dragCenter.cx,
+            state.dragCenter.cy,
+            CONSOLE_SLOT_POS
+          );
+
+          const targetFreeRotX = -0.10;
+          const targetFreeRotY = Math.max(-0.32, Math.min(0.32, vx * 0.18));
+          const targetFreeRotZ = Math.max(-0.24, Math.min(0.24, -vx * 0.20));
+          state.dragCenter.freeRotX += (targetFreeRotX - state.dragCenter.freeRotX) * follow;
+          state.dragCenter.freeRotY += (targetFreeRotY - state.dragCenter.freeRotY) * follow;
+          state.dragCenter.freeRotZ += (targetFreeRotZ - state.dragCenter.freeRotZ) * follow;
+
+          if (prox.doorOpenAmount > doorAngle) {
+            doorAngle = prox.doorOpenAmount;
+          }
+
+          const heldGame = GAMES.find(function (g) {
+            return g.id === state.animGameId;
+          });
+
+          if (prox.inCaptureZone) {
+            state.holdRotateProgress = Math.min(1.0, state.holdRotateProgress + holdDt / 0.46);
+            if (state.ledState !== 'red') {
+              setLedState('red');
+            }
+            if (heldGame && state.holdRotateProgress < 1.0) {
+              consoleReadoutEl.textContent =
+                'Rotating ' + heldGame.title + ' into position...';
+            }
+          } else {
+            state.holdRotateProgress = Math.max(0.0, state.holdRotateProgress - holdDt / 0.22);
+            const fallbackLed = state.slottedGameId ? 'green' : 'off';
+            if (state.ledState !== fallbackLed) {
+              setLedState(fallbackLed);
+            }
+            if (heldGame) {
+              consoleReadoutEl.textContent =
+                'Holding ' + heldGame.title + ' · Hold over the console slot to insert';
+            }
+          }
+
+          // Rotate strictly IN PLACE around exact held 3D center (cx, cy, cz) — zero position teleport!
+          const rotEase = easeInOutCubic(state.holdRotateProgress);
+          state.dragCenter.rotX =
+            state.dragCenter.freeRotX + (-Math.PI * 0.5 - state.dragCenter.freeRotX) * rotEase;
+          state.dragCenter.rotY = state.dragCenter.freeRotY * (1 - rotEase);
+          state.dragCenter.rotZ = state.dragCenter.freeRotZ * (1 - rotEase);
+
+          const dragRoot = cartridgeCenterToRoot(
+            state.dragCenter.cx,
+            state.dragCenter.cy,
+            state.dragCenter.cz,
+            state.dragCenter.rotX,
+            state.dragCenter.rotY,
+            state.dragCenter.rotZ
+          );
+          activePose = {
+            x: dragRoot[0],
+            y: dragRoot[1],
+            z: dragRoot[2],
+            rotX: state.dragCenter.rotX,
+            rotY: state.dragCenter.rotY,
+            rotZ: state.dragCenter.rotZ
+          };
+
+          // Once fully rotated -90 deg in place in the user's hand, seamlessly begin the horizontal slide-in!
+          if (prox.inCaptureZone && state.holdRotateProgress >= 1.0 && heldGame) {
+            commitSnapInsert(heldGame, state.dragCenter, SNAP_ROTATE_END);
+          }
+        } else if (state.animMode === 'returning' && state.animGameId) {
+          keepAnimating = true;
+          const u = easeOutCubic(Math.min(1, Math.max(0, (now - state.animStartTime) / 260)));
+          const rt = cartridgeRuntime[state.animGameId];
+          const shelfCenter = cartridgeRootToCenter(
+            rt.shelfX,
+            rt.shelfY,
+            rt.shelfZ,
+            0,
+            rt.baseRotY,
+            0
+          );
+          const cx = state.snapStartPose.cx + (shelfCenter[0] - state.snapStartPose.cx) * u;
+          const cy = state.snapStartPose.cy + (shelfCenter[1] - state.snapStartPose.cy) * u;
+          const cz = state.snapStartPose.cz + (shelfCenter[2] - state.snapStartPose.cz) * u;
+          const rotX = state.snapStartPose.rotX * (1 - u);
+          const rotY = state.snapStartPose.rotY + (rt.baseRotY - state.snapStartPose.rotY) * u;
+          const rotZ = state.snapStartPose.rotZ * (1 - u);
+          const retRoot = cartridgeCenterToRoot(cx, cy, cz, rotX, rotY, rotZ);
+
+          state.dragCenter.cx = cx;
+          state.dragCenter.cy = cy;
+          state.dragCenter.cz = cz;
+          state.dragCenter.rotX = rotX;
+          state.dragCenter.rotY = rotY;
+          state.dragCenter.rotZ = rotZ;
+
+          activePose = {
+            x: retRoot[0],
+            y: retRoot[1],
+            z: retRoot[2],
+            rotX: rotX,
+            rotY: rotY,
+            rotZ: rotZ
+          };
+          if (u >= 1) {
+            state.animGameId = null;
+            state.animMode = state.slottedGameId ? 'seated' : 'idle';
+            syncHitButtonsState();
+          }
+        } else if (state.animMode === 'inserting' && state.animGameId) {
+          keepAnimating = true;
+          const activeInsertMs = state.insertDurationMs || SNAP_INSERT_MS;
+          state.animProgress = Math.min(1, Math.max(0, (now - state.animStartTime) / activeInsertMs));
+          activePose = computeSnapInsertPose(
+            state.animProgress,
+            state.snapStartPose,
+            CONSOLE_SLOT_POS
+          );
+          doorAngle = Math.max(doorAngle, activePose.doorAngle);
+          trayDrop = activePose.trayDrop !== 0 ? activePose.trayDrop : trayDrop;
+          powerPress = activePose.powerPress;
+
+          if (state.animProgress >= SNAP_SLIDE_END && !state.clickSoundPlayed) {
+            state.clickSoundPlayed = true;
+            playClickSound('latch');
+            if (!reduceMotion) state.cameraShake = 0.22;
+          }
+          if (state.animProgress >= 1) {
+            completeCartridgeInsertion();
+          }
+        } else if (state.animMode === 'ctrl-inserting' && state.animGameId) {
+          keepAnimating = true;
+          const activeInsertMs = state.insertDurationMs || CTRL_INSERT_MS;
+          state.animProgress = Math.min(1, Math.max(0, (now - state.animStartTime) / activeInsertMs));
+          activePose = computeControllerInsertPose(
+            state.animProgress,
+            state.animCtrlSide,
+            CONSOLE_SLOT_POS
+          );
+          doorAngle = Math.max(doorAngle, activePose.doorAngle);
+          trayDrop = activePose.trayDrop !== 0 ? activePose.trayDrop : trayDrop;
+          powerPress = activePose.powerPress;
+
+          if (state.animProgress >= SNAP_SLIDE_END && !state.clickSoundPlayed) {
+            state.clickSoundPlayed = true;
+            playClickSound('latch');
+            if (!reduceMotion) state.cameraShake = 0.22;
+          }
+          if (state.animProgress >= 1) {
+            completeCartridgeInsertion();
+          }
+        } else if (state.animMode === 'shelf-inserting' && state.animGameId) {
+          keepAnimating = true;
+          const activeInsertMs = state.insertDurationMs || SHELF_CLICK_INSERT_MS;
+          state.animProgress = Math.min(1, Math.max(0, (now - state.animStartTime) / activeInsertMs));
+          const rt = cartridgeRuntime[state.animGameId];
+          activePose = computeInsertionPose(
+            state.animProgress,
+            [rt.shelfX, rt.shelfY, rt.shelfZ, rt.baseRotY],
+            CONSOLE_SLOT_POS
+          );
+          doorAngle = Math.max(doorAngle, activePose.doorAngle);
+          trayDrop = activePose.trayDrop !== 0 ? activePose.trayDrop : trayDrop;
+          powerPress = activePose.powerPress;
+
+          if (state.animProgress >= 0.80 && !state.clickSoundPlayed) {
+            state.clickSoundPlayed = true;
+            playClickSound('latch');
+            if (!reduceMotion) state.cameraShake = 0.22;
+          }
+          if (state.animProgress >= 1) {
+            completeCartridgeInsertion();
+          }
+        } else if (state.animMode === 'seated' && state.slottedGameId) {
+          const rt = cartridgeRuntime[state.slottedGameId];
+          activePose = computeInsertionPose(
+            1.0,
+            [rt.shelfX, rt.shelfY, rt.shelfZ, rt.baseRotY],
+            CONSOLE_SLOT_POS
+          );
+          doorAngle = activePose.doorAngle;
+          trayDrop = activePose.trayDrop;
+          powerPress = activePose.powerPress;
+        } else if (state.animMode === 'ejecting' && state.animGameId) {
+          keepAnimating = true;
+          state.animProgress = Math.max(0, Math.min(1, 1 - (now - state.animStartTime) / 720));
+          const rt = cartridgeRuntime[state.animGameId];
+          activePose = computeInsertionPose(
+            state.animProgress,
+            [rt.shelfX, rt.shelfY, rt.shelfZ, rt.baseRotY],
+            CONSOLE_SLOT_POS
+          );
+          doorAngle = activePose.doorAngle;
+          trayDrop = activePose.trayDrop;
+
+          if (state.animProgress <= 0) {
+            state.animMode = 'idle';
+            state.animGameId = null;
+            syncHitButtonsState();
+          }
+        }
+
+        // Per-cartridge hover lift & 3D tilt damping
+        for (let i = 0; i < GAMES.length; i++) {
+          const g = GAMES[i];
+          const rt = cartridgeRuntime[g.id];
+          const isHovered =
+            state.hoveredGameId === g.id &&
+            state.animMode !== 'dragging' &&
+            state.animGameId !== g.id &&
+            state.slottedGameId !== g.id &&
+            !isCartridgeDisplaced(g.id) &&
+            !reduceMotion;
+
+          const targetLift = isHovered ? 1.0 : 0.0;
+          const targetTiltY = isHovered ? 0.24 : 0.0;
+          const targetTiltX = isHovered ? -0.08 : 0.0;
+
+          rt.hoverLift += (targetLift - rt.hoverLift) * dampFactor;
+          rt.hoverTiltY += (targetTiltY - rt.hoverTiltY) * dampFactor;
+          rt.hoverTiltX += (targetTiltX - rt.hoverTiltX) * dampFactor;
+
+          if (Math.abs(targetLift - rt.hoverLift) > 0.002) {
+            keepAnimating = true;
+          }
+        }
+
+        if (!gl) return keepAnimating;
+
+        // Resize canvas cleanly if needed
+        const rect = stageMainEl.getBoundingClientRect();
+        const dpr = isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+        const pixelW = Math.max(1, Math.floor(rect.width * dpr));
+        const pixelH = Math.max(1, Math.floor(rect.height * dpr));
+        if (canvasEl.width !== pixelW || canvasEl.height !== pixelH) {
+          canvasEl.width = pixelW;
+          canvasEl.height = pixelH;
+          computeShelfLayout();
+        }
+
+        gl.viewport(0, 0, canvasEl.width, canvasEl.height);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        const aspect = rect.width / Math.max(1, rect.height);
+        // Analytical frustum fit so all 3D shelf rows AND the entire 3D NES console + controller never clip
+        const fovRad = (34 * Math.PI) / 180;
+        const tanHalfFov = Math.tan(fovRad * 0.5);
+        const sceneMinY = -2.46;
+        const sceneMaxY = sceneTopShelfY + 1.48;
+        const camCenterY = (sceneMinY + sceneMaxY) * 0.5;
+        const halfH = (sceneMaxY - sceneMinY) * 0.5;
+        const halfW = Math.max(3.6, sceneMaxPlankWidth * 0.5 + 0.42);
+
+        const distForH = halfH / tanHalfFov + 2.45;
+        const distForW = halfW / (tanHalfFov * aspect) + 0.95;
+        const camDist = Math.max(distForH, distForW) * 1.07;
+
+        const shakeOffset = state.cameraShake * state.cameraShake * Math.sin(now * 0.055) * 0.14;
+        _eye[0] = state.camParallaxX + shakeOffset * 0.35;
+        _eye[1] = camCenterY + 0.52 + state.camParallaxY + shakeOffset;
+        _eye[2] = camDist;
+        _target[0] = state.camParallaxX * 0.25;
+        _target[1] = camCenterY - 0.08;
+        _target[2] = 0.25;
+
+        mat4Perspective(_projMat, fovRad, aspect, 0.5, 45.0);
+        mat4LookAt(_viewMat, _eye, _target, _up);
+        mat4Multiply(_vpMat, _projMat, _viewMat);
+
+        gl.useProgram(glProgram);
+        gl.bindVertexArray(unitBoxVao);
+        gl.uniformMatrix4fv(uniforms.uViewProj, false, _vpMat);
+        gl.uniform3fv(uniforms.uCameraPos, _eye);
+
+        // Dynamic Power LED Point Light Uniforms
+        gl.uniform3f(
+          uniforms.uLedWorldPos,
+          CONSOLE_POS[0] - 1.43,
+          CONSOLE_POS[1] + 0.25,
+          CONSOLE_POS[2] + 1.16
+        );
+        if (state.ledState === 'red') {
+          gl.uniform3f(uniforms.uLedColor, 1.0, 0.22, 0.22);
+          gl.uniform1f(uniforms.uLedIntensity, 1.35);
+        } else if (state.ledState === 'green') {
+          gl.uniform3f(uniforms.uLedColor, 0.28, 1.0, 0.52);
+          gl.uniform1f(uniforms.uLedIntensity, 1.45);
+        } else {
+          gl.uniform3f(uniforms.uLedColor, 0.0, 0.0, 0.0);
+          gl.uniform1f(uniforms.uLedIntensity, 0.0);
+        }
+
+        // 1. Render 3D Walnut Shelves
+        render3DShelves();
+
+        // 2. Render 3D NES Console & 3D Controller on Desk
+        render3DConsoleAndDesk(doorAngle, trayDrop, powerPress, state.ejectPress, rearDoorAngle);
+
+        // 3. Render Soft Contact Shadows on Shelves for Seated Shelf Cartridges
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.depthMask(false);
+        mat4Identity(_consoleBaseMat);
+        for (let i = 0; i < visibleGamesCache.length; i++) {
+          const g = visibleGamesCache[i];
+          const dispEntry = getDisplacedCartridgeEntry(g.id);
+          const isAway =
+            (state.animMode !== 'idle' && state.animGameId === g.id) ||
+            (state.slottedGameId === g.id &&
+              (state.animMode === 'seated' ||
+                state.animMode === 'dragging' ||
+                state.animMode === 'returning' ||
+                isInsertionBusyMode(state.animMode)));
+          const rt = cartridgeRuntime[g.id];
+          let shadowAlpha = isAway ? 0.14 : 0.65 * (1 - rt.hoverLift * 0.35);
+          if (dispEntry) {
+            const dp = Math.min(1, Math.max(0, (now - dispEntry.startTime) / DISPLACED_RETURN_MS));
+            shadowAlpha = 0.14 + (0.65 - 0.14) * smoothstep(0.70, 1.0, dp);
+          }
+          drawBoxPart(
+            _consoleBaseMat,
+            rt.shelfX,
+            rt.shelfY + 0.004,
+            rt.shelfZ,
+            1.15,
+            0.003,
+            0.44,
+            [0, 0, 0],
+            -1.0,
+            0,
+            shadowTex,
+            null,
+            shadowAlpha
+          );
+        }
+        gl.depthMask(true);
+        gl.disable(gl.BLEND);
+
+        // 4. Render All Visible Shelf 3D Cartridges
+        const activeId = state.animMode === 'seated' ? state.slottedGameId : state.animGameId;
+
+        for (let i = 0; i < visibleGamesCache.length; i++) {
+          const g = visibleGamesCache[i];
+          if (g.id === activeId) continue;
+          if (seatedBackgroundPose && g.id === state.slottedGameId) continue;
+          if (isCartridgeDisplaced(g.id)) continue;
+
+          const rt = cartridgeRuntime[g.id];
+          mat4Identity(rt.worldMat);
+          mat4Translate(
+            rt.worldMat,
+            rt.worldMat,
+            rt.shelfX,
+            rt.shelfY + rt.hoverLift * 0.18,
+            rt.shelfZ + rt.hoverLift * 0.30
+          );
+          mat4RotateY(rt.worldMat, rt.worldMat, rt.baseRotY + rt.hoverTiltY);
+          mat4RotateX(rt.worldMat, rt.worldMat, rt.hoverTiltX);
+          render3DCartridge(rt.worldMat, g);
+        }
+
+        // 5a. Render Already-Seated Cartridge inside Console while user drags a new one
+        if (seatedBackgroundPose && state.slottedGameId) {
+          const seatedGame = getCartridgeById(state.slottedGameId);
+          if (seatedGame) {
+            const srt = cartridgeRuntime[state.slottedGameId];
+            mat4Identity(srt.worldMat);
+            mat4Translate(
+              srt.worldMat,
+              srt.worldMat,
+              seatedBackgroundPose.x,
+              seatedBackgroundPose.y,
+              seatedBackgroundPose.z
+            );
+            mat4RotateY(srt.worldMat, srt.worldMat, seatedBackgroundPose.rotY);
+            mat4RotateZ(srt.worldMat, srt.worldMat, seatedBackgroundPose.rotZ);
+            mat4RotateX(srt.worldMat, srt.worldMat, seatedBackgroundPose.rotX);
+            render3DCartridge(srt.worldMat, seatedGame);
+          }
+        }
+
+        // 5b. Render Outgoing Displaced Cartridge(s) Going Through Behind & Sliding Into Place (1.5s)
+        for (let d = 0; d < activeDisplacedDraws.length; d++) {
+          const dItem = activeDisplacedDraws[d];
+          const dGame = getCartridgeById(dItem.id);
+          if (!dGame) continue;
+          const dPose = dItem.pose;
+          mat4Identity(_displacedMat);
+          mat4Translate(_displacedMat, _displacedMat, dPose.x, dPose.y, dPose.z);
+          mat4RotateY(_displacedMat, _displacedMat, dPose.rotY);
+          mat4RotateZ(_displacedMat, _displacedMat, dPose.rotZ);
+          mat4RotateX(_displacedMat, _displacedMat, dPose.rotX);
+          if (dPose.scale !== undefined && dPose.scale < 0.999) {
+            mat4Scale(_displacedMat, _displacedMat, dPose.scale, dPose.scale, dPose.scale);
+          }
+          render3DCartridge(_displacedMat, dGame);
+        }
+
+        // 5c. Render Active Held / Returning / Inserting / Seated 3D Cartridge
+        if (activeId && activePose) {
+          const activeGame = getCartridgeById(activeId);
+          if (activeGame) {
+            const rt = cartridgeRuntime[activeId];
+            mat4Identity(rt.worldMat);
+            mat4Translate(rt.worldMat, rt.worldMat, activePose.x, activePose.y, activePose.z);
+            mat4RotateY(rt.worldMat, rt.worldMat, activePose.rotY);
+            mat4RotateZ(rt.worldMat, rt.worldMat, activePose.rotZ);
+            mat4RotateX(rt.worldMat, rt.worldMat, activePose.rotX);
+            render3DCartridge(rt.worldMat, activeGame);
+          }
+        }
+
+        gl.bindVertexArray(null);
+        updateProjectedHitBoxes(rect.width, rect.height);
+
+        return keepAnimating;
+      }
+
+      function requestRender() {
+        if (renderBusy) {
+          renderDirty = true;
+          return;
+        }
+        renderBusy = true;
+        if (loopIdle) {
+          lastFrameTime = performance.now();
+          loopIdle = false;
+        }
+        requestAnimationFrame(function (now) {
+          renderDirty = false;
+          const needsMore = stepSimulationAndDraw(now);
+          const done = function () {
+            renderBusy = false;
+            if (renderDirty || needsMore) {
+              requestRender();
+            } else {
+              loopIdle = true;
+            }
+          };
+          if (isSoftwareGl) {
+            afterDraw(done);
+          } else {
+            done();
+          }
+        });
+      }
+
+      // =========================================================================
+      // User Interaction Flows: Hold & Drag to Console, Rotate + Slide + Click, Eject
+      // =========================================================================
+      function startCartridgeDrag(game, e) {
+        if (
+          isInsertionBusyMode(state.animMode) ||
+          state.animMode === 'ejecting' ||
+          state.animMode === 'dragging'
+        ) {
+          return;
+        }
+
+        // Warm AudioContext on user gesture so the mechanical click plays with zero latency
+        getAudioContext();
+
+        const wasReturningSame =
+          state.animMode === 'returning' && state.animGameId === game.id;
+        const rt = cartridgeRuntime[game.id];
+
+        if (!wasReturningSame) {
+          const c0 = cartridgeRootToCenter(
+            rt.shelfX,
+            rt.shelfY + rt.hoverLift * 0.18,
+            rt.shelfZ + rt.hoverLift * 0.30,
+            rt.hoverTiltX,
+            rt.baseRotY + rt.hoverTiltY,
+            0
+          );
+          state.dragCenter.cx = c0[0];
+          state.dragCenter.cy = c0[1];
+          state.dragCenter.cz = c0[2];
+          state.dragCenter.rotX = rt.hoverTiltX;
+          state.dragCenter.rotY = rt.baseRotY + rt.hoverTiltY;
+          state.dragCenter.rotZ = 0;
+        }
+
+        state.dragCenter.freeRotX = state.dragCenter.rotX;
+        state.dragCenter.freeRotY = state.dragCenter.rotY;
+        state.dragCenter.freeRotZ = state.dragCenter.rotZ;
+
+        state.hoveredGameId = null;
+        state.animMode = 'dragging';
+        state.animGameId = game.id;
+        state.holdRotateProgress = 0;
+        state.lastHoldTickMs = performance.now();
+
+        const worldPt = screenClientToCarryWorld(e.clientX, e.clientY);
+        state.grabOffsetX = state.dragCenter.cx - worldPt[0];
+        state.grabOffsetY = state.dragCenter.cy - worldPt[1];
+        state.dragStartClientX = e.clientX;
+        state.dragStartClientY = e.clientY;
+        state.dragStartTimeMs = performance.now();
+        state.dragMaxTravelPx = 0;
+        state.dragTarget[0] = state.dragCenter.cx;
+        state.dragTarget[1] = state.dragCenter.cy;
+        state.dragTarget[2] = worldPt[2];
+
+        document.body.classList.add('is-dragging-cartridge');
+        consoleReadoutEl.textContent =
+          'Holding ' + game.title + ' · Hold over the console slot to insert';
+
+        syncHitButtonsState();
+        requestRender();
+      }
+
+      function updateCartridgeDragPointer(clientX, clientY) {
+        if (state.animMode !== 'dragging' || !state.animGameId) return;
+        const travelPx = Math.hypot(
+          clientX - state.dragStartClientX,
+          clientY - state.dragStartClientY
+        );
+        if (travelPx > state.dragMaxTravelPx) {
+          state.dragMaxTravelPx = travelPx;
+        }
+        const offsetWeight = Math.max(0, 1 - travelPx / 260);
+        const worldPt = screenClientToCarryWorld(clientX, clientY);
+        state.dragTarget[0] = worldPt[0] + state.grabOffsetX * offsetWeight;
+        state.dragTarget[1] = worldPt[1] + state.grabOffsetY * offsetWeight;
+        state.dragTarget[2] = worldPt[2];
+        requestRender();
+      }
+
+      function triggerShelfCartridgeClickInsert(game) {
+        if (
+          !game ||
+          isInsertionBusyMode(state.animMode) ||
+          state.animMode === 'ejecting' ||
+          (state.slottedGameId === game.id && state.animMode === 'seated')
+        ) {
+          return;
+        }
+        document.body.classList.remove('is-dragging-cartridge');
+        clearPendingTimers();
+        getAudioContext();
+
+        const now = performance.now();
+        if (state.slottedGameId && state.slottedGameId !== game.id) {
+          beginDisplacedCartridgeReturn(state.slottedGameId, now, true);
+        }
+        removeDisplacedCartridge(game.id);
+
+        state.hoveredGameId = null;
+        state.slottedGameId = game.id;
+        state.animGameId = game.id;
+        state.clickSoundPlayed = false;
+        state.insertDurationMs = SHELF_CLICK_INSERT_MS;
+        state.animStartTime = now;
+        state.animProgress = 0;
+        state.animMode = 'shelf-inserting';
+
+        setLedState('red');
+        consoleReadoutEl.textContent = 'Sliding ' + game.title + ' into console...';
+        launchLinkEl.hidden = true;
+        ejectBtnEl.disabled = true;
+        syncHitButtonsState();
+        requestRender();
+      }
+
+      function finishCartridgeDrag() {
+        if (state.animMode !== 'dragging' || !state.animGameId) return;
+        document.body.classList.remove('is-dragging-cartridge');
+
+        const heldGame = GAMES.find(function (g) {
+          return g.id === state.animGameId;
+        });
+        const proxPose = evaluateConsoleProximity(
+          state.dragCenter.cx,
+          state.dragCenter.cy,
+          CONSOLE_SLOT_POS
+        );
+
+        if (heldGame && proxPose.inCaptureZone) {
+          // Released right over the console slot: finish rotating in place at exact held center, then slide in!
+          commitSnapInsert(heldGame, state.dragCenter, state.holdRotateProgress * SNAP_ROTATE_END);
+          return;
+        }
+
+        // Quick click / tap on a shelf cartridge without dragging: run the 2-second 3D arc & slide-in then open!
+        const heldDurationMs = performance.now() - state.dragStartTimeMs;
+        if (heldGame && state.dragMaxTravelPx <= 10 && heldDurationMs < 360) {
+          state.animMode = 'idle';
+          triggerShelfCartridgeClickInsert(heldGame);
+          return;
+        }
+
+        // Released away from console after dragging: restore LED and smoothly return cartridge to its shelf spot
+        setLedState(state.slottedGameId ? 'green' : 'off');
+        state.snapStartPose = {
+          cx: state.dragCenter.cx,
+          cy: state.dragCenter.cy,
+          cz: state.dragCenter.cz,
+          rotX: state.dragCenter.rotX,
+          rotY: state.dragCenter.rotY,
+          rotZ: state.dragCenter.rotZ
+        };
+        state.animMode = 'returning';
+        state.animStartTime = performance.now();
+        syncHitButtonsState();
+
+        if (state.slottedGameId) {
+          const running = getCartridgeById(state.slottedGameId);
+          if (running) {
+            consoleReadoutEl.textContent = running.isControllerPak
+              ? 'Expansion Cartridge Loaded'
+              : 'Running: ' + running.title;
+          }
+        } else if (heldGame) {
+          consoleReadoutEl.textContent =
+            'Click or drag ' + heldGame.title + ' to the console slot to load';
+        }
+        requestRender();
+      }
+
+      function completeCartridgeInsertion() {
+        const game = getCartridgeById(state.slottedGameId);
+        if (!game) return;
+
+        state.animMode = 'seated';
+        state.animGameId = null;
+        syncHitButtonsState();
+
+        setLedState('green');
+        consoleReadoutEl.textContent = game.isControllerPak
+          ? 'Expansion Cartridge Loaded'
+          : 'Running: ' + game.title;
+        launchLinkEl.href = game.url;
+        launchLinkEl.hidden = false;
+        ejectBtnEl.disabled = false;
+        requestRender();
+        openUrlInNewTab(game.url);
+      }
+
+      function commitSnapInsert(game, startPose, initialProgress, customTotalMs) {
+        if (isInsertionBusyMode(state.animMode) || state.animMode === 'ejecting') return;
+        document.body.classList.remove('is-dragging-cartridge');
+        clearPendingTimers();
+
+        const startP = Math.max(0, Math.min(SNAP_ROTATE_END, initialProgress || 0));
+        const totalMs = customTotalMs || SNAP_INSERT_MS;
+        const now = performance.now();
+
+        if (state.slottedGameId && state.slottedGameId !== game.id) {
+          beginDisplacedCartridgeReturn(state.slottedGameId, now, true);
+        }
+        removeDisplacedCartridge(game.id);
+
+        state.hoveredGameId = null;
+        state.slottedGameId = game.id;
+        state.animGameId = game.id;
+        state.clickSoundPlayed = false;
+        state.insertDurationMs = totalMs;
+        state.animStartTime = now - startP * totalMs;
+        state.snapStartPose = {
+          cx: startPose.cx,
+          cy: startPose.cy,
+          cz: startPose.cz,
+          rotX: startPose.rotX,
+          rotY: startPose.rotY,
+          rotZ: startPose.rotZ
+        };
+
+        setLedState('red');
+        consoleReadoutEl.textContent = game.isControllerPak
+          ? 'Sliding cartridge into console...'
+          : 'Inserting ' + game.title + '...';
+        launchLinkEl.hidden = true;
+        ejectBtnEl.disabled = true;
+
+        state.animMode = 'inserting';
+        state.animProgress = startP;
+        syncHitButtonsState();
+        requestRender();
+      }
+
+      function triggerControllerCartridgeInsert(side) {
+        if (state.animMode === 'dragging') return;
+        getAudioContext();
+        playClickSound('latch');
+        if (side === 'left') {
+          state.ctrlLeftPress = 0.044;
+        } else {
+          state.ctrlRightPress = 0.044;
+        }
+
+        const pak = CONTROLLER_CARTRIDGES[side === 'left' ? 0 : 1];
+        if (!pak) return;
+
+        // Ignore accidental double-tap on the same active controller insert while already mid-flight
+        if (state.animMode === 'ctrl-inserting' && state.slottedGameId === pak.id) {
+          requestRender();
+          return;
+        }
+
+        document.body.classList.remove('is-dragging-cartridge');
+        clearPendingTimers();
+
+        const now = performance.now();
+        if (state.slottedGameId && state.slottedGameId !== pak.id) {
+          beginDisplacedCartridgeReturn(state.slottedGameId, now, false);
+        }
+        removeDisplacedCartridge(pak.id);
+
+        state.hoveredGameId = null;
+        state.slottedGameId = pak.id;
+        state.animGameId = pak.id;
+        state.animCtrlSide = side === 'left' ? 'left' : 'right';
+        state.clickSoundPlayed = false;
+        state.insertDurationMs = CTRL_INSERT_MS;
+        state.animStartTime = now;
+        state.animProgress = 0;
+        state.animMode = 'ctrl-inserting';
+
+        setLedState('red');
+        consoleReadoutEl.textContent = 'Sliding cartridge into console...';
+        launchLinkEl.hidden = true;
+        ejectBtnEl.disabled = true;
+
+        syncHitButtonsState();
+        requestRender();
+      }
+
+      function triggerEjectCartridge() {
+        if (!state.slottedGameId || isInsertionBusyMode(state.animMode) || state.animMode === 'ejecting') {
+          return;
+        }
+        clearPendingTimers();
+        playClickSound('eject');
+
+        const ejectedId = state.slottedGameId;
+        state.slottedGameId = null;
+        state.ejectPress = 0.075;
+
+        setLedState('off');
+        launchLinkEl.hidden = true;
+        launchLinkEl.removeAttribute('href');
+        ejectBtnEl.disabled = true;
+        consoleReadoutEl.textContent = 'Console Ready · Click or drag a cartridge to the slot';
+
+        state.animMode = 'ejecting';
+        state.animGameId = ejectedId;
+        state.animProgress = 1.0;
+        state.animStartTime = performance.now();
+        syncHitButtonsState();
+        requestRender();
+      }
+
+      function renderCategoryBar() {
+        categoryBarEl.innerHTML = '';
+        CATEGORIES.forEach(function (category) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'filter-btn';
+          btn.textContent = category;
+          btn.setAttribute('aria-pressed', String(state.activeCategory === category));
+          btn.addEventListener('click', function () {
+            if (state.activeCategory === category) return;
+            state.activeCategory = category;
+            renderCategoryBar();
+            computeShelfLayout();
+            rebuildHitButtonsDOM();
+            requestRender();
+          });
+          categoryBarEl.appendChild(btn);
+        });
+      }
+
+      // Wire Search, Reset, Pointer Dragging, Parallax, Resize & WebGL Context Recovery
+      searchInputEl.addEventListener('input', function (e) {
+        state.searchQuery = e.target.value;
+        searchClearEl.hidden = state.searchQuery.length === 0;
+        computeShelfLayout();
+        rebuildHitButtonsDOM();
+        requestRender();
+      });
+
+      searchClearEl.addEventListener('click', function () {
+        state.searchQuery = '';
+        searchInputEl.value = '';
+        searchClearEl.hidden = true;
+        computeShelfLayout();
+        rebuildHitButtonsDOM();
+        requestRender();
+        searchInputEl.focus();
+      });
+
+      resetFiltersEl.addEventListener('click', function () {
+        state.activeCategory = 'All';
+        state.searchQuery = '';
+        searchInputEl.value = '';
+        searchClearEl.hidden = true;
+        renderCategoryBar();
+        computeShelfLayout();
+        rebuildHitButtonsDOM();
+        requestRender();
+      });
+
+      ejectBtnEl.addEventListener('click', triggerEjectCartridge);
+
+      if (ctrlLeftBtnEl) {
+        ctrlLeftBtnEl.addEventListener('pointerenter', function () {
+          state.hoveredCtrlBtn = 'left';
+          requestRender();
+        });
+        ctrlLeftBtnEl.addEventListener('pointerleave', function () {
+          if (state.hoveredCtrlBtn === 'left') {
+            state.hoveredCtrlBtn = null;
+            requestRender();
+          }
+        });
+        ctrlLeftBtnEl.addEventListener('focus', function () {
+          state.hoveredCtrlBtn = 'left';
+          requestRender();
+        });
+        ctrlLeftBtnEl.addEventListener('blur', function () {
+          if (state.hoveredCtrlBtn === 'left') {
+            state.hoveredCtrlBtn = null;
+            requestRender();
+          }
+        });
+        ctrlLeftBtnEl.addEventListener('click', function () {
+          triggerControllerCartridgeInsert('left');
+        });
+      }
+
+      if (ctrlRightBtnEl) {
+        ctrlRightBtnEl.addEventListener('pointerenter', function () {
+          state.hoveredCtrlBtn = 'right';
+          requestRender();
+        });
+        ctrlRightBtnEl.addEventListener('pointerleave', function () {
+          if (state.hoveredCtrlBtn === 'right') {
+            state.hoveredCtrlBtn = null;
+            requestRender();
+          }
+        });
+        ctrlRightBtnEl.addEventListener('focus', function () {
+          state.hoveredCtrlBtn = 'right';
+          requestRender();
+        });
+        ctrlRightBtnEl.addEventListener('blur', function () {
+          if (state.hoveredCtrlBtn === 'right') {
+            state.hoveredCtrlBtn = null;
+            requestRender();
+          }
+        });
+        ctrlRightBtnEl.addEventListener('click', function () {
+          triggerControllerCartridgeInsert('right');
+        });
+      }
+
+      // Stage-level click fallback over the 3D controller body (covers D-pad, button edges & slight mouse drift)
+      stageMainEl.addEventListener('click', function (e) {
+        if (!ctrlScreenBounds.valid || state.animMode === 'dragging') return;
+        const target = e.target;
+        if (
+          target === ctrlLeftBtnEl ||
+          target === ctrlRightBtnEl ||
+          (target && typeof target.closest === 'function' && (target.closest('.cartridge-hit') || target.closest('#empty-shelf')))
+        ) {
+          return;
+        }
+        const rect = stageMainEl.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        if (
+          x >= ctrlScreenBounds.leftX &&
+          x <= ctrlScreenBounds.rightX &&
+          y >= ctrlScreenBounds.topY &&
+          y <= ctrlScreenBounds.botY
+        ) {
+          triggerControllerCartridgeInsert(x < ctrlScreenBounds.midBtnX ? 'left' : 'right');
+        }
+      });
+
+      window.addEventListener('pointermove', function (e) {
+        const rect = stageMainEl.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          state.pointerNdcX = Math.max(-1, Math.min(1, ((e.clientX - rect.left) / rect.width) * 2 - 1));
+          state.pointerNdcY = Math.max(-1, Math.min(1, 1 - ((e.clientY - rect.top) / rect.height) * 2));
+          if (state.animMode === 'dragging') {
+            updateCartridgeDragPointer(e.clientX, e.clientY);
+          } else {
+            requestRender();
+          }
+        }
+      });
+
+      window.addEventListener('pointerup', finishCartridgeDrag);
+      window.addEventListener('pointercancel', finishCartridgeDrag);
+
+      window.addEventListener('resize', function () {
+        computeShelfLayout();
+        requestRender();
+      });
+
+      canvasEl.addEventListener('webglcontextlost', function (e) {
+        e.preventDefault();
+      });
+      canvasEl.addEventListener('webglcontextrestored', function () {
+        initWebGL();
+        requestRender();
+      });
+
+      // Boot 3D Scene & UI
+      initWebGL();
+      renderCategoryBar();
+      computeShelfLayout();
+      rebuildHitButtonsDOM();
+      requestRender();
+
+      // Re-bake high-DPI cartridge label textures once Press Start 2P finishes loading
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(function () {
+          rebuildCartridgeTextures();
+          requestRender();
+        });
+      }
+    </script>
+  </body>
+</html>
